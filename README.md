@@ -10,15 +10,12 @@ Anonymous submission to CoRL 2021.
 We added a video, examples of ReferIt3D datasets, qualitative results of the model, 
 and a link to the orientation annotation webpage on the project page.
 
-
-## Instruction to run the code
 For running the code, we have to install the prerequisites, setup an environment, and then run the code.
 You would be able to run the evaluation code if you follow the instruction step by step.
 
 ***WARNING: one of scripts contains the code that modifies your `~/.bashrc` file. 
 Please make a copy of your `~/.bashrc` file.***
 
-### Install prerequisites and environment
 We recommend using `anaconda3` to setup the environment for the code.
 Here's a list important libraries that are used in the code:
 
@@ -27,7 +24,7 @@ Here's a list important libraries that are used in the code:
 
 These libraries will be installed if you follow the guide below.
   
-#### Install guide
+## Install guide
 1. Install `anaconda3` manually or by running `bash ./install_anaconda.sh`. (Note that this will modify your `~/.bashrc` file.)
 1. Setup an environment by running `conda env create -f env.yml`.
 1. Activate the environment by running `conda activate lr`.
