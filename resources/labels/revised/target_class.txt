@@ -1,0 +1,76 @@
+armchair
+backpack
+bag
+bar
+bathroom stall
+bathroom stall door
+bed
+bench
+bin
+blackboard
+blanket
+board
+book
+books
+bookshelf
+bottle
+box
+cabinet
+cabinets
+cart
+chair
+coffee maker
+coffee table
+computer tower
+couch
+cup
+curtain
+desk
+door
+doors
+dresser
+end table
+file cabinet
+keyboard
+kitchen cabinet
+kitchen cabinets
+kitchen counter
+lamp
+laptop
+laundry hamper
+light
+microwave
+mirror
+monitor
+mouse
+night stand
+office chair
+ottoman
+oven
+paper towel dispenser
+person
+picture
+pillow
+pipe
+plant
+printer
+radiator
+rail
+recycling bin
+shelf
+shoes
+sign
+sink
+soap dish
+sofa chair
+stool
+suitcase
+table
+telephone
+toilet
+toilet paper
+towel
+trash can
+wardrobe
+whiteboard
+window
