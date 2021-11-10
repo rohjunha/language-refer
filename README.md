@@ -1,6 +1,7 @@
 # LanguageRefer: Spatial-Language Model for 3D Visual Grounding
 
 This is an implementation of CoRL 2021 paper "LanguageRefer: Spatial-Language Model for 3D Visual Grounding" by Roh et al. [[pdf](https://openreview.net/pdf?id=dgQdvPZnH-t)][[project](https://sites.google.com/view/language-refer)]
+
 For a video, examples of ReferIt3D datasets, qualitative results of the model, and a link to the orientation annotation, please visit the project page (https://sites.google.com/view/language-refer).
 
 ![LR Figure](/resources/lr.png)
