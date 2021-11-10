@@ -1,16 +1,13 @@
 # LanguageRefer: Spatial-Language Model for 3D Visual Grounding
 
-Anonymous submission to CoRL 2021.
+This is an implementation of CoRL 2021 paper "LanguageRefer: Spatial-Language Model for 3D Visual Grounding" by Roh et al. [[pdf](https://openreview.net/pdf?id=dgQdvPZnH-t)][[project](https://sites.google.com/view/language-refer)]
+For a video, examples of ReferIt3D datasets, qualitative results of the model, and a link to the orientation annotation, please visit the project page (https://sites.google.com/view/language-refer).
 
 ![LR Figure](/resources/lr.png)
 
-* pdf: https://openreview.net/pdf?id=dgQdvPZnH-t
-* project: https://sites.google.com/view/language-refer
-
-We added a video, examples of ReferIt3D datasets, qualitative results of the model, 
-and a link to the orientation annotation webpage on the project page.
 
 ## Instruction to run the code
+
 For running the code, we have to install the prerequisites, setup an environment, and then run the code.
 You would be able to run the evaluation code if you follow the instruction step by step.
 
@@ -32,3 +29,15 @@ These libraries will be installed if you follow the guide below:
 1. With the conda environment `lr` activated,
   1. For `nr3d`, run `python eval.py --dataset-name nr3d --pretrain-path $(PROJECT_PATH)/resources/models/nr3d`.
   1. For `sr3d`, run `python eval.py --dataset-name sr3d --pretrain-path $(PROJECT_PATH)/resources/models/sr3d`.
+
+
+## Citing the paper
+If you use "LanguageRefer: Spatial-Language Model for 3D Visual Grounding" in your research, please cite the paper:
+```bibtex
+@inproceedings{Roh2021Language,
+  title={{L}anguage{R}efer: Spatial-Language Model for 3D Visual Grounding},
+  author={Junha Roh and Karthik Desingh and Ali Farhadi and Dieter Fox},
+  booktitle={Proceedings of the Conference on Robot Learning},
+  year={2021},
+}
+```
