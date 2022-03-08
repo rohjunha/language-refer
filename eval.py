@@ -42,7 +42,7 @@ def prepare_model(pretrain_path, device, args, tokenizer):
     return model
 
 
-def eval_custom() -> None:
+def evaluate() -> None:
     args = fetch_standard_evaluation_arguments(verbose=False)
     tokenizer = fetch_tokenizer()
     dataset = fetch_standard_test_dataset(args=args, tokenizer=tokenizer)
@@ -54,27 +54,36 @@ def eval_custom() -> None:
         worker_init_fn=seed_worker)
 
     device = 'cpu' if args.no_cuda else 'cuda:0'
-    model = prepare_model(args.pretrain_path, device, args, tokenizer)
 
-    out_matched = []
-    out_assignment_id = []
-    count = 0
-    for batch in tqdm(data_loader):
-        with torch.no_grad():
-            refined_batch = model.prepare_batch(batch, device)
-            matched = model.eval_forward(batch=refined_batch)
-            out_matched.append(matched)
-            out_assignment_id.append(batch['assignment_ids'])
-            count += 1
+    if args.eval_single_only:
+        pretrain_path_list = [(-1, args.pretrain_path)]
+    else:
+        pretrain_path_list = fetch_pretrain_path_list(args)
 
-    matched = torch.cat(out_matched).detach().cpu()
-    assignment_id = torch.cat(out_assignment_id).detach().cpu()
-    matched_dict = {a.item(): m.item() for m, a in zip(matched, assignment_id)}
-    print('Accuracy {:7.5f}'.format(sum(1 for v in matched_dict.values() if v) / len(matched_dict.values()) * 100))
-    with open(str(Path(args.output_dir) / 'eval.json'), 'w') as file:
-        json.dump(matched_dict, file, indent=4)
-    logger.info('wrote an evaluation file: {}'.format(Path(args.output_dir) / 'eval.json'))
+    for num_iter, pretrain_path in pretrain_path_list:
+        logger.info('evaluate {}'.format(num_iter))
+        model = prepare_model(pretrain_path, device, args, tokenizer)
+
+        out_matched = []
+        out_assignment_id = []
+        count = 0
+        for batch in tqdm(data_loader):
+            with torch.no_grad():
+                refined_batch = model.prepare_batch(batch, device)
+                matched = model.eval_forward(batch=refined_batch)
+                out_matched.append(matched)
+                out_assignment_id.append(batch['assignment_ids'])
+                count += 1
+
+        matched = torch.cat(out_matched).detach().cpu()
+        assignment_id = torch.cat(out_assignment_id).detach().cpu()
+        matched_dict = {a.item(): m.item() for m, a in zip(matched, assignment_id)}
+        print('Accuracy {:7.5f}'.format(sum(1 for v in matched_dict.values() if v) / len(matched_dict.values()) * 100))
+        out_path = Path(args.output_dir) / 'eval{:06d}.json'.format(num_iter) if num_iter > 0 else 'eval.json'
+        with open(str(out_path), 'w') as file:
+            json.dump(matched_dict, file, indent=4)
+        logger.info('wrote an evaluation file: {}'.format(out_path))
 
 
 if __name__ == '__main__':
-    eval_custom()
+    evaluate()

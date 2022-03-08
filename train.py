@@ -28,12 +28,11 @@ os.environ['TOKENIZERS_PARALLELISM'] = 'false'
 
 
 def run_evaluation(args, model, test_dl, device, global_num_iter):
-    tqdm_eval_iter = tqdm(enumerate(test_dl))
     out_matched = []
     out_assignment_id = []
     count = 0
     with torch.no_grad():
-        for local_eval_num_iter, batch in tqdm_eval_iter:
+        for local_eval_num_iter, batch in enumerate(test_dl):
             refined_batch = model.prepare_batch(batch, device)
             matched = model.eval_forward(batch=refined_batch)
             out_matched.append(matched)
@@ -50,19 +49,34 @@ def run_evaluation(args, model, test_dl, device, global_num_iter):
     logger.info('wrote an evaluation file: {}'.format(Path(args.output_dir) / 'eval{:06d}.json'.format(global_num_iter)))
 
 
+def modify_args_train(args):
+    args.use_target_mask = False
+    args.target_mask_k = 1
+
+
+def modify_args_test(args):
+    args.use_target_mask = True
+    args.target_mask_k = 4
+
+
 def train():
     args = fetch_standard_training_arguments()
     device = 'cuda:0'
 
     tokenizer = fetch_tokenizer()
+    modify_args_train(args)
     train_dataset = fetch_dataset(
         args=args,
         split_name='train',
         tokenizer=tokenizer)
+
+    modify_args_test(args)
     test_dataset = fetch_dataset(
         args=args,
         split_name='test',
         tokenizer=tokenizer)
+
+    modify_args_train(args)
     model = fetch_model(args=args, tokenizer=tokenizer)
     model.train()
     model = model.to(device)
@@ -167,7 +181,9 @@ def train():
                     'global_num_iter': global_num_iter,
                 }, str(state_path))
 
+                modify_args_test(args)
                 run_evaluation(args, model, test_dl, device, global_num_iter)
+                modify_args_train(args)
 
 
 if __name__ == '__main__':
