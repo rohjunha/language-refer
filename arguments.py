@@ -56,7 +56,7 @@ def fetch_base_argument_parser() -> ArgumentParser:
     parser.add_argument('--dataset-name', type=str, default='nr3d', help='the name of the dataset {nr3d, sr3d}')
     parser.add_argument('--extra-dataset-name', type=str, default=None)
     parser.add_argument('--label-type', type=str, default='revised')
-    parser.add_argument('--random-seed', type=int, default=2021)
+    parser.add_argument('--random-seed', type=int, default=2022)
 
     parser.add_argument('--max-distractors', type=int, default=51)
     parser.add_argument('--max-test-objects', type=int, default=87)
@@ -70,7 +70,7 @@ def fetch_base_argument_parser() -> ArgumentParser:
     parser.add_argument('--debug', action='store_true', default=False)
     parser.add_argument('--use-custom-df', action='store_true', default=False)
     parser.add_argument('--custom-df-path', type=str, default='')
-    parser.add_argument('--use-target-mask', action='store_true', default=True)
+    parser.add_argument('--use-target-mask', action='store_true', default=False)
     parser.add_argument('--use-tar-loss', action='store_true', default=False)
     parser.add_argument('--use-clf-loss', action='store_true', default=True)
     parser.add_argument('--use-mask-loss', action='store_true', default=False)
@@ -91,6 +91,8 @@ def fetch_base_argument_parser() -> ArgumentParser:
     parser.add_argument('--use-view-dependent-implicit', type=str2bool, default=True,
                         help='Use view dependent (implicit) utterances')
 
+    parser.add_argument('--use-bbox-annotation-only', action='store_true', default=False,
+                        help='Flag whether the model is doing a viewpoint prediction or a referring task.')
     parser.add_argument('--use-bbox-random-rotation-independent', type=str2bool, default=True)
     parser.add_argument('--use-bbox-random-rotation-dependent-explicit', type=str2bool, default=False)
     parser.add_argument('--use-bbox-random-rotation-dependent-implicit', type=str2bool, default=False)
@@ -239,9 +241,6 @@ def standard_training_argument_modifier(args: Namespace) -> Namespace:
     args.use_bbox_random_rotation_dependent_implicit = False
     args.use_mentions_target_class_only = True
     args.use_correct_guess_only = True
-    # args.use_view_independent = True
-    # args.use_view_dependent_explicit = True
-    # args.use_view_dependent_implicit = True
     return args
 
 
@@ -252,9 +251,10 @@ def standard_evaluation_argument_modifier(args: Namespace) -> Namespace:
     args.use_bbox_random_rotation_dependent_implicit = False
     args.use_mentions_target_class_only = True
     args.use_correct_guess_only = True
-    # args.use_view_independent = True
-    # args.use_view_dependent_explicit = True
-    # args.use_view_dependent_implicit = True
+
+    args.use_predicted_class = True
+    args.use_target_mask = True
+    args.target_mask_k = 4
     return args
 
 

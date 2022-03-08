@@ -24,6 +24,14 @@ def fetch_nr3d_eval_assignment_id_list_path() -> Path:
     return path
 
 
+def fetch_index_by_instance_class_path(
+        label_type: str,
+        dataset_name: str) -> Path:
+    path = fetch_labels_dir(label_type) / 'index_by_instance_class/{}.json'.format(dataset_name)
+    assert path.exists()
+    return path
+
+
 def fetch_instance_item_dict_storage_path(dataset_name: str) -> Path:
     assert check_valid_dataset_name(dataset_name)
     return fetch_data_root_dir() / 'storage_{}.pt'.format(dataset_name)
