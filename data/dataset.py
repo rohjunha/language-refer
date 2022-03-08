@@ -177,7 +177,6 @@ def encode_single_label_with_sep_without_point(
 def encode_data_with_tokenizer(
         tokenizer: DistilBertTokenizerFast,
         rng,
-        use_mask_loss: bool,
         dataset_names: List[str],
         assignment_ids: List[int],
         utterances: List[str],
@@ -233,25 +232,9 @@ def encode_data_with_tokenizer(
         word_ids = encodings.word_ids(batch_index=i)
         input_ids = encodings['input_ids'][i]
 
-        if use_mask_loss:
-            noun_word_str_list = noun_word_indices[i].split(' ')
-            if noun_word_str_list and noun_word_str_list[0] != '':
-                noun_indices = list(map(int, noun_word_str_list))
-            else:
-                noun_indices = []
-            replaced_token_info = replace_tokens_with_mask_and_noun_indices(
-                tokenizer, noun_indices, tokens, word_ids, input_ids, rng)
-            gt_input_ids = replaced_token_info['gt_input_ids']
-            input_ids = replaced_token_info['modified_input_ids']
-        else:
-            gt_input_ids = None
+        gt_input_ids = None
         encoded_value_list_dict['input_ids'].append(input_ids)
         encoded_value_list_dict['gt_input_ids'].append(gt_input_ids)
-
-        # print(word_ids)
-        # print(tokens)
-        # print(labels[i])
-        # print(hashs[i])
 
         encoded_item = encode_single_label_with_sep_without_point(
             word_ids=word_ids,
@@ -509,34 +492,28 @@ class NewDataset(Dataset):
             self,
             args: Namespace,
             is_train: bool,
-            use_mask_loss: bool,
             storage: InstanceStorage,
             encoded_value_dict: Dict[str, List[Any]]):
         Dataset.__init__(self)
         self.args = args
         self.is_train = is_train
-        self.use_mask_loss = use_mask_loss
         self.storage = storage
         self.encoded_value_dict = encoded_value_dict
 
-        self.DATASET_KEYS = {'labels', 'wheres', 'assignment_ids', 'binary_labels', 'object_attention_mask',
-                             'utterance_attention_mask', 'target_mask', 'target_labels', 'input_ids',
-                             'hashs', 'attention_mask'}
-        if self.use_mask_loss:
-            self.DATASET_KEYS.add('gt_input_ids')
+        self.DATASET_KEYS = {'object_attention_mask', 'utterance_attention_mask',
+                             'target_mask', 'input_ids', 'attention_mask'}
+        self.GT_KEYS = {'labels', 'wheres', 'target_labels', 'binary_labels'}
 
     def __len__(self):
         return len(self.encoded_value_dict['labels'])
 
-    def __getitem__(self, index: int) -> Dict[str, Any]:
+    def __getitem__(self, index: int) -> Tuple[Dict[str, Any], Dict[str, Any]]:
         """
         Fetch utterance-related information and returns it as a dictionary
         :param index: int, index
         :return:
             input_ids: torch.int64, (num_encoded, ), input word ids from encodings
             attention_mask: torch.bool, (num_encoded, ), mask information from encodings
-            wheres: torch.int64/int, integer (encoded) position of the target instance
-            labels: torch.int64, (num_encoded, ), integer labels of instances
             instance_ids: torch.int64/int, (???, ), instance_classes of objects
             assignment_ids: torch.int64/int, unique id of utterance (-1 in sr3d)
             bboxs: torch.float32, (num_encoded, 6), bounding-box information
@@ -544,15 +521,21 @@ class NewDataset(Dataset):
             rotation_index: float32, index of applied rotation to the bounding box
             viewpoint_annotation: int64, ground-truth viewpoint annotation (only if view-dependent-explicit)
             target_mask: torch.bool, (num_encoded, ), bool (predicted) target class indicator
-            target_labels: torch.int64, index of target class (out of 76)
             gt_input_ids: Optional[torch.int64]
+
+            wheres: torch.int64/int, integer (encoded) position of the target instance
+            labels: torch.int64, (num_encoded, ), integer labels of instances
+            target_labels: torch.int64, index of target class (out of 76)
         """
-        item = dict()
+        item_dict = dict()
+        gt_dict = dict()
 
         with torch.no_grad():
             # copy values from the encoded value dict
             for key in self.DATASET_KEYS:
-                item[key] = torch.tensor(self.encoded_value_dict[key][index])
+                item_dict[key] = torch.tensor(self.encoded_value_dict[key][index])
+            for key in self.GT_KEYS:
+                gt_dict[key] = torch.tensor(self.encoded_value_dict[key][index], dtype=torch.long)
 
             # prepare hash indices and values
             encoded_hashs = self.encoded_value_dict['hashs'][index]
@@ -566,9 +549,9 @@ class NewDataset(Dataset):
 
             # apply rotation w.r.t the arg options
             assignment_id = self.encoded_value_dict['assignment_ids'][index]
-            item['bboxs'] = torch.tensor(encoded_bboxs)
+            item_dict['bboxs'] = torch.tensor(encoded_bboxs)
 
-        return item
+        return item_dict, gt_dict
 
 
 BATCH_KEYS = [
@@ -586,12 +569,10 @@ def fetch_dataset(
     encoded_value_dict = encode_data_with_tokenizer(
         tokenizer=tokenizer,
         rng=rng,
-        use_mask_loss=args.use_mask_loss,
         **{k: instance_items_dict[k] for k in BATCH_KEYS})
     dataset = NewDataset(
         args=args,
         is_train=split_name == 'train',
-        use_mask_loss=args.use_mask_loss,
         storage=storage,
         encoded_value_dict=encoded_value_dict)
     return dataset
@@ -613,12 +594,10 @@ def fetch_standard_test_dataset(
     encoded_value_dict = encode_data_with_tokenizer(
         tokenizer=tokenizer,
         rng=rng,
-        use_mask_loss=args.use_mask_loss,
         **{k: instance_items_dict[k] for k in BATCH_KEYS})
     dataset = NewDataset(
         args=args,
         is_train=False,
-        use_mask_loss=args.use_mask_loss,
         storage=storage,
         encoded_value_dict=encoded_value_dict)
     return dataset

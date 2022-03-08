@@ -22,35 +22,20 @@ class LanguageRefer(DistilBertPreTrainedModel):
             self,
             config: DistilBertConfig,
             num_target_classes: int,
-            use_target_mask: bool,
-            use_clf_loss: bool,
-            use_tar_loss: bool,
-            use_mask_loss: bool,
-            use_pos_loss: bool):
+            use_target_mask: bool):
         DistilBertPreTrainedModel.__init__(
             self,
             config)
 
         self.config = config
         self.use_target_mask = use_target_mask
-        self.use_clf_loss = use_clf_loss
-        self.use_tar_loss = use_tar_loss
-        self.use_mask_loss = use_mask_loss
-        self.use_pos_loss = use_pos_loss
         self.num_target_classes = num_target_classes
         self.vocab_size = 28996
 
         self.bert_reference = DistilBertModel(config)
         self.dropout = Dropout(0.1)
         self.ref_classifier = Linear(self.config.hidden_size, 1)
-        if self.use_clf_loss:
-            self.cls_classifier = Linear(self.config.hidden_size, 2)
-        if self.use_tar_loss:
-            self.tar_classifier = Linear(self.config.hidden_size, num_target_classes)
-        if self.use_mask_loss:
-            self.mask_classifier = Linear(self.config.hidden_size, self.vocab_size)
-        if self.use_pos_loss:
-            self.pos_regressor = Linear(self.config.hidden_size, 3)
+        self.cls_classifier = Linear(self.config.hidden_size, 2)
 
         self.is_train = None
 
@@ -61,20 +46,11 @@ class LanguageRefer(DistilBertPreTrainedModel):
             utterance_attention_mask,
             object_attention_mask,
             bboxs,
-            wheres,
-            binary_labels,
-            target_mask,
-            target_labels,
-            gt_input_ids=None,
+            target_mask
     ):
         assert attention_mask is not None
         assert utterance_attention_mask is not None
         assert object_attention_mask is not None
-
-        if self.use_mask_loss:
-            assert gt_input_ids is not None
-        else:
-            assert gt_input_ids is None
 
         input_embeddings = self.bert_reference.get_input_embeddings()  # .to(device=self.device)
         inputs_embeds = input_embeddings(input_ids)
@@ -95,45 +71,20 @@ class LanguageRefer(DistilBertPreTrainedModel):
         sequence_outputs = self.dropout(sequence_outputs)
         ref_logits = self.ref_classifier(sequence_outputs).squeeze(dim=2)  # (bsize, seq_len)
 
+        # update ref_logits with mask
         ref_mask = object_attention_mask == 1
         if self.use_target_mask:
             ref_mask = torch.logical_and(ref_mask, target_mask)
         ref_logits[~ref_mask] = -1e4
 
-        logits_dict = {
+        cls_logits = self.cls_classifier(sequence_outputs)  # (bsize, seq_len, 2)
+        cls_mask = object_attention_mask == 1
+        cls_logits[~cls_mask, :] = -1e4
+
+        return {
             'ref': ref_logits,  # (bsize, seq_len)
+            'cls': cls_logits.view(-1, 2),  # (bsize * seq_len, 2)
         }
-        gt_dict = {
-            'ref': wheres.view(-1),  # (bsize * seq_len, )
-        }
-
-        if self.use_clf_loss:
-            cls_logits = self.cls_classifier(sequence_outputs)  # (bsize, seq_len, 2)
-            cls_mask = object_attention_mask == 1
-            cls_logits[~cls_mask, :] = -1e4
-            logits_dict['cls'] = cls_logits.view(-1, 2)  # (bsize * seq_len, 2)
-            gt_dict['cls'] = binary_labels.view(-1)  # (bsize * seq_len, )
-
-        if self.use_tar_loss:
-            tar_logits = self.tar_classifier(sequence_outputs[:, 0, :].squeeze(dim=1))  # (bsize, num_target_classes)
-            logits_dict['tar'] = tar_logits
-            gt_dict['tar'] = target_labels
-
-        if self.use_pos_loss:
-            pos_logits = self.pos_regressor(sequence_outputs[:, 0, :].squeeze())  # (bsize, 3)
-            tar_positions = torch.stack([torch.index_select(bboxs[i, ...], 0, wheres[i]).squeeze()
-                                         for i in range(wheres.shape[0])])[:, :3]  # (bsize, 3)
-            logits_dict['pos'] = pos_logits
-            gt_dict['pos'] = tar_positions
-
-        if gt_input_ids is not None:
-            mask_mask = utterance_attention_mask == 1
-            mask_logits = self.mask_classifier(sequence_outputs)  # (bsize, seq_len, vocab_size)
-            mask_logits[~mask_mask, :] = -1e4
-            logits_dict['mask'] = mask_logits.view(-1, self.vocab_size)  # (bsize * seq_len, vocab_size)
-            gt_dict['mask'] = gt_input_ids.view(-1)  # (bsize * seq_len)
-
-        return logits_dict, gt_dict
 
     def prepare_batch(self, raw_batch, device):
         batch = dict()
@@ -169,10 +120,6 @@ def fetch_model(
     model = LanguageRefer(
         config=config,
         use_target_mask=args.use_target_mask,
-        use_clf_loss=args.use_clf_loss,
-        use_tar_loss=args.use_tar_loss,
-        use_mask_loss=args.use_mask_loss,
-        use_pos_loss=args.use_pos_loss,
         num_target_classes=num_target_class)
 
     if args.pretrain_path is None:
@@ -183,12 +130,9 @@ def fetch_model(
 
         state_dict = torch.load(str(model_path))
         new_state_dict = dict()
+        cls_prefixs = ['mask_classifier', 'tar_classifier', 'pos_regressor']
         for k, v in state_dict.items():
-            if not args.use_mask_loss and k.startswith('mask_classifier'):
-                continue
-            if not args.use_tar_loss and k.startswith('tar_classifier'):
-                continue
-            if not args.use_pos_loss and k.startswith('pos_regressor'):
+            if any(k.startswith(p) for p in cls_prefixs):
                 continue
             new_state_dict[k] = v
         model.load_state_dict(new_state_dict)

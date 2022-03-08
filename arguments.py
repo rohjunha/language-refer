@@ -71,10 +71,6 @@ def fetch_base_argument_parser() -> ArgumentParser:
     parser.add_argument('--use-custom-df', action='store_true', default=False)
     parser.add_argument('--custom-df-path', type=str, default='')
     parser.add_argument('--use-target-mask', action='store_true', default=False)
-    parser.add_argument('--use-tar-loss', action='store_true', default=False)
-    parser.add_argument('--use-clf-loss', action='store_true', default=True)
-    parser.add_argument('--use-mask-loss', action='store_true', default=False)
-    parser.add_argument('--use-pos-loss', action='store_true', default=False)
     parser.add_argument('--use-predicted-class', action='store_true', default=True)
     parser.add_argument('--target-mask-k', type=int, default=4)
     parser.add_argument('--normalize-bbox', action='store_true', default=False,
@@ -103,9 +99,7 @@ def fetch_base_argument_parser() -> ArgumentParser:
                         help='Add a model to predict the viewpoint')
     parser.add_argument('--weight-decay', type=float, default=0.01)
     parser.add_argument('--weight-ref', type=float, default=1.0, help='Weight on the referring loss or viewpoint pred.')
-    parser.add_argument('--weight-tar', type=float, default=0.5, help='Weight on the target classification loss')
     parser.add_argument('--weight-clf', type=float, default=0.5, help='Weight on the object classification loss')
-    parser.add_argument('--weight-mask', type=float, default=0.5, help='Weight on the mask loss')
 
     parser.add_argument('--output-dir-prefix', type=str, default='results')
     parser.add_argument('--log-dir', type=str, default='logs')
