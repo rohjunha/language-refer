@@ -75,7 +75,7 @@ def train():
     task_names = {default_task_name}
 
     criterion_dict = {
-        default_task_name: CrossEntropyLoss(),
+        default_task_name: CrossEntropyLoss().to(device),
     }
     weight_dict = {
         default_task_name: args.weight_ref,
@@ -84,22 +84,22 @@ def train():
     if args.use_clf_loss:
         ignore_class = 'otherprop' if args.label_type == 'revised' else 'pad'
         task_names.add('cls')
-        criterion_dict['cls'] = CrossEntropyLoss(ignore_index=index_by_instance_class[ignore_class])
+        criterion_dict['cls'] = CrossEntropyLoss(ignore_index=index_by_instance_class[ignore_class]).to(device)
         weight_dict['cls'] = args.weight_clf
 
     if args.use_tar_loss:
         task_names.add('tar')
-        criterion_dict['tar'] = CrossEntropyLoss()
+        criterion_dict['tar'] = CrossEntropyLoss().to(device)
         weight_dict['tar'] = args.weight_tar
 
     if args.use_pos_loss:
         task_names.add('pos')
-        criterion_dict['pos'] = MSELoss()
+        criterion_dict['pos'] = MSELoss().to(device)
         weight_dict['pos'] = args.weight_pos
 
     if args.use_mask_loss:
         task_names.add('mask')
-        criterion_dict['mask'] = CrossEntropyLoss(ignore_index=-100)
+        criterion_dict['mask'] = CrossEntropyLoss(ignore_index=-100).to(device)
         weight_dict['mask'] = args.weight_mask
 
     meter_dict: Dict[str, AverageMeter] = {key: AverageMeter(key) for key in task_names}
@@ -136,8 +136,9 @@ def train():
             optimizer.zero_grad()
             with autocast():
                 logits_dict, gt_dict = model(**refined_batch)
-                loss_dict = {name: criterion_dict[name](logits_dict[name], gt_dict[name])
-                             for name in task_names}
+                loss_dict = {
+                    name: criterion_dict[name](logits_dict[name], gt_dict[name].to(dtype=torch.long, device=device))
+                    for name in task_names}
                 for key, value in loss_dict.items():
                     meter_dict[key].update(value, args.logging_steps)
                 loss = sum([weight_dict[key] * loss_dict[key] for key in loss_dict.keys()])
