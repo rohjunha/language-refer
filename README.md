@@ -32,6 +32,14 @@ These libraries will be installed if you follow the guide below:
   1. For `sr3d`, run `python eval.py --dataset-name sr3d --pretrain-path $(PROJECT_PATH)/resources/models/sr3d`.
 
 
+## Instruction to train a model
+Try the command below:
+```
+python train.py --experiment-tag $(use-your-own-description) --per-device-train-batch-size $(batch-size)
+```
+Please check some arguments by running `python train.py --help`.
+
+
 ## Citing the paper
 If you use "LanguageRefer: Spatial-Language Model for 3D Visual Grounding" in your research, please cite the paper:
 ```bibtex
