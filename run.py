@@ -33,16 +33,15 @@ class LanguageRefer(pl.LightningModule):
             label_type=args.label_type,
             dataset_name=args.dataset_name)
 
-        default_task_name = 'viewpoint' if args.use_bbox_annotation_only else 'ref'
-        self.task_names = {default_task_name, 'cls'}
+        self.task_names = {'ref', 'cls'}
 
         ignore_class = 'otherprop' if args.label_type == 'revised' else 'pad'
         self.criterion_dict = {
-            default_task_name: CrossEntropyLoss(),
+            'ref': CrossEntropyLoss(),
             'cls': CrossEntropyLoss(ignore_index=self.index_by_instance_class[ignore_class]),
         }
         self.weight_dict = {
-            default_task_name: args.weight_ref,
+            'ref': args.weight_ref,
             'cls': args.weight_clf,
         }
         self.meter_dict: Dict[str, AverageMeter] = {key: AverageMeter(key) for key in self.task_names}
