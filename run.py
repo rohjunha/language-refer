@@ -170,7 +170,7 @@ def main():
     trainer = pl.Trainer(
         logger=wandb_logger,
         gpus=args.gpus,
-        strategy='dp',
+        strategy='ddp',
         precision=16,
         num_sanity_val_steps=0,
         log_every_n_steps=20,
