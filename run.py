@@ -65,7 +65,8 @@ class LanguageRefer(pl.LightningModule):
         scheduler = get_linear_schedule_with_warmup(
             optimizer,
             self.args.warmup_steps,
-            2000)
+            self.args.total_training_steps,
+            self.trainer.current_epoch)
         return [optimizer], [scheduler]
 
     def _single_step(self, batch, mode: str):

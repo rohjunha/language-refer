@@ -105,14 +105,11 @@ def fetch_parser() -> ArgumentParser:
     parser.add_argument('--batch-size', type=int, default=100)
     parser.add_argument('--gpus', type=int, default=1)
 
-    # parameters from TrainingArguments
-    parser.add_argument('--num-train-epochs', type=int, default=300)
-
     # training arguments.
     parser.add_argument('--train-custom', type=str2bool, default=False)
     parser.add_argument('--learning-rate', type=float, default=1e-4)
-    parser.add_argument('--warmup-steps', type=int, default=500)
-    parser.add_argument('--save-total-limit', type=int, default=20)
+    parser.add_argument('--warmup-steps', type=int, default=1000)
+    parser.add_argument('--total-training-epochs', type=int, default=80)
 
     # evaluation arguments.
     parser.add_argument('--eval-reverse', type=str2bool, default=True)
@@ -187,6 +184,13 @@ def post_process_arguments(
 
     if verbose:
         print(pprint.pformat(vars(args)))
+
+    step_size = args.batch_size * args.gpus
+    _warmup_steps = args.warmup_steps
+    args.warmup_steps = args.warmup_steps // step_size
+    args.total_training_steps = args.total_training_epochs // step_size
+    print('Altered the warmup steps from {} to {}'.format(_warmup_steps, args.warmup_steps))
+    print('Set the total training steps: {}'.format(args.total_training_steps))
 
     return args
 
