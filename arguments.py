@@ -188,9 +188,7 @@ def post_process_arguments(
     step_size = args.batch_size * args.gpus
     _warmup_steps = args.warmup_steps
     args.warmup_steps = args.warmup_steps // step_size
-    args.total_training_steps = args.total_training_epochs // step_size
     print('Altered the warmup steps from {} to {}'.format(_warmup_steps, args.warmup_steps))
-    print('Set the total training steps: {}'.format(args.total_training_steps))
 
     return args
 

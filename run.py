@@ -147,6 +147,9 @@ def main():
     wandb_logger = WandbLogger(project='lr')
     train_dl, test_dl = fetch_data_loaders(args)
 
+    args.total_training_steps = int(args.total_training_epochs * (len(train_dl) / args.gpus))
+    print('Set the total training steps: {}'.format(args.total_training_steps))
+
     if args.resume:
         model = LanguageRefer.load_from_checkpoint(args.resume, args=args)
     else:
