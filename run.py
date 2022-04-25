@@ -118,12 +118,14 @@ def fetch_data_loaders(args: Namespace):
         args=args,
         split='train',
         use_target_mask=False,
-        target_mask_k=1)
+        target_mask_k=1,
+        max_distractors=args.max_distractors)
     test_dataset = ReferIt3DDataset(
         args=args,
         split='test',
         use_target_mask=True,
-        target_mask_k=args.target_mask_k)
+        target_mask_k=args.target_mask_k,
+        max_distractors=args.max_test_objects)
 
     train_dl = DataLoader(
         train_dataset,
@@ -149,6 +151,7 @@ def main():
 
     args.total_training_steps = int(args.total_training_epochs * (len(train_dl) / args.gpus))
     print('Set the total training steps: {}'.format(args.total_training_steps))
+    wandb_logger.experiment.config.update(args)
 
     if args.resume:
         model = LanguageRefer.load_from_checkpoint(args.resume, args=args)
@@ -167,10 +170,9 @@ def main():
     trainer = pl.Trainer(
         logger=wandb_logger,
         gpus=args.gpus,
-        strategy='ddp',
+        strategy='dp',
         precision=16,
         num_sanity_val_steps=0,
-        deterministic=True,
         callbacks=[checkpoint_callback, lr_monitor_callback, ])
 
     if args.mode == 'train':

@@ -437,7 +437,8 @@ class InstanceSampler:
 def fetch_instance_items_and_storage_dict(
         args: Namespace,
         split: str,
-        target_mask_k: int) -> Tuple[Dict[str, List[Any]], InstanceStorage]:
+        target_mask_k: int,
+        max_distractors: int) -> Tuple[Dict[str, List[Any]], InstanceStorage]:
     storage = fetch_instance_storage(dataset_name=args.dataset_name)
 
     if args.use_custom_df:
@@ -460,7 +461,7 @@ def fetch_instance_items_and_storage_dict(
         dataset_name=args.dataset_name,
         label_type=args.label_type,
         storage=storage,
-        max_distractors=args.max_distractors,
+        max_distractors=max_distractors,
         use_predicted_class=args.use_predicted_class,
         target_mask_k=target_mask_k)
     if args.debug:
@@ -481,13 +482,14 @@ class ReferIt3DDataset(Dataset):
             args: Namespace,
             split: str,
             use_target_mask: bool,
-            target_mask_k: int):
+            target_mask_k: int,
+            max_distractors: int):
         Dataset.__init__(self)
         self.use_target_mask = use_target_mask
         self.target_mask_k = target_mask_k
         self.tokenizer = DistilBertTokenizerFast.from_pretrained('distilbert-base-cased')
         self.instance_items_dict, self.storage = fetch_instance_items_and_storage_dict(
-            args=args, split=split, target_mask_k=target_mask_k)
+            args=args, split=split, target_mask_k=target_mask_k, max_distractors=max_distractors)
         self.encoded_value_dict = encode_data_with_tokenizer(
             tokenizer=self.tokenizer,
             use_target_mask=use_target_mask,

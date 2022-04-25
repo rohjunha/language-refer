@@ -90,11 +90,7 @@ def fetch_parser() -> ArgumentParser:
     parser.add_argument('--weight-clf', type=float, default=0.5, help='Weight on the object classification loss')
 
     parser.add_argument('--output-dir-prefix', type=str, default='results')
-    parser.add_argument('--log-dir', type=str, default='logs')
     parser.add_argument('--pretrain-path', type=str, default=None)
-    parser.add_argument('--save-args', type=str2bool, default=True)
-    parser.add_argument('--logging-steps', type=int, default=20)
-    parser.add_argument('--save-steps', type=int, default=2000)
     parser.add_argument('--resume', type=str, default=None)
     parser.add_argument('--pin-memory', action='store_true', default=False)
 
@@ -108,12 +104,8 @@ def fetch_parser() -> ArgumentParser:
     # training arguments.
     parser.add_argument('--train-custom', type=str2bool, default=False)
     parser.add_argument('--learning-rate', type=float, default=1e-4)
-    parser.add_argument('--warmup-steps', type=int, default=1000)
+    parser.add_argument('--warmup-steps', type=int, default=4000)
     parser.add_argument('--total-training-epochs', type=int, default=80)
-
-    # evaluation arguments.
-    parser.add_argument('--eval-reverse', type=str2bool, default=True)
-    parser.add_argument('--eval-single-only', type=str2bool, default=True)
 
     return parser
 
@@ -158,20 +150,12 @@ def post_process_arguments(
         args.output_dir = str(mkdir(output_dir / args.experiment_tag / timestamp))
     assert args.experiment_tag
 
-    if not is_train:
-        args.max_distractors = args.max_test_objects
-
     # turn off fp16 mode if cuda is not used
     if args.no_cuda:
         args.fp16 = False
 
     if args.random_seed >= 0:
         set_random_seed(args.random_seed)
-
-    if args.save_args:
-        out = osp.join(args.output_dir, 'config.json.txt')
-        with open(out, 'w') as f_out:
-            json.dump(vars(args), f_out, indent=4, sort_keys=True)
 
     assert args.dataset_name in {'nr3d', 'sr3d'}
     eff_dataset_name = args.dataset_name
