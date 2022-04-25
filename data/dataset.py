@@ -8,6 +8,7 @@ from typing import Dict, List, Any, Union, Tuple
 import numpy as np
 import torch
 from pandas import DataFrame, Series
+from torch import Tensor
 from torch.utils.data import Dataset
 from transformers import DistilBertTokenizerFast
 
@@ -281,14 +282,12 @@ class InstanceSampler:
             storage: InstanceStorage,
             max_distractors: int,
             use_predicted_class: bool,
-            target_mask_k: int,
-            num_points: int = 1000):
+            target_mask_k: int):
         self.dataset_name = dataset_name
         self.label_type = label_type
 
         self.storage = storage
         self.max_distractors = max_distractors
-        self.num_points = num_points
         self.target_mask_k = target_mask_k
         self.use_predicted_class = use_predicted_class
 
@@ -455,8 +454,7 @@ def fetch_instance_items_and_storage_dict(
         storage=storage,
         max_distractors=args.max_distractors,
         use_predicted_class=args.use_predicted_class,
-        target_mask_k=target_mask_k,
-        num_points=args.num_points)
+        target_mask_k=target_mask_k)
     if args.debug:
         df = df.iloc[:100]
     instance_items = sampler.fetch_instances(df)
@@ -486,7 +484,7 @@ class ReferIt3DDataset(Dataset):
     def __len__(self):
         return len(self.encoded_value_dict['labels'])
 
-    def __getitem__(self, index: int) -> Tuple[Dict[str, Any], Dict[str, Any]]:
+    def __getitem__(self, index: int) -> Tuple[Dict[str, Any], Dict[str, Any], Tensor]:
         """
         Fetch utterance-related information and returns it as a dictionary
         :param index: int, index

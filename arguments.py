@@ -61,12 +61,6 @@ def fetch_parser() -> ArgumentParser:
 
     parser.add_argument('--max-distractors', type=int, default=51)
     parser.add_argument('--max-test-objects', type=int, default=87)
-    parser.add_argument('--num-points', type=int, default=1000)
-    parser.add_argument('--reduce-tags', type=str2bool, default=False)
-    parser.add_argument('--use-sep', type=str2bool, default=True)
-    parser.add_argument('--remove-sep', type=str2bool, default=False)
-    parser.add_argument('--use-pe', type=str2bool, default=True, help='Positional encoding from bounding-boxes')
-    parser.add_argument('--use-point', type=str2bool, default=False, help='Use Pointcloud as a feature')
 
     parser.add_argument('--debug', action='store_true', default=False)
     parser.add_argument('--use-custom-df', action='store_true', default=False)
@@ -77,11 +71,6 @@ def fetch_parser() -> ArgumentParser:
     parser.add_argument('--normalize-bbox', action='store_true', default=False,
                         help='Normalize the 3D position of bboxs')
 
-    parser.add_argument('--use-merged-model', type=str2bool, default=False)
-    parser.add_argument('--use-mentions-target-class-only', type=str2bool, default=True,
-                        help='Use only cases mentioning the target class')
-    parser.add_argument('--use-correct-guess-only', type=str2bool, default=True,
-                        help='Use only cases correctly guessed the answer')
     parser.add_argument('--use-view-independent', type=str2bool, default=True, help='Use view independent utterances')
     parser.add_argument('--use-view-dependent-explicit', type=str2bool, default=True,
                         help='Use view dependent (explicit) utterances')
@@ -96,8 +85,6 @@ def fetch_parser() -> ArgumentParser:
     parser.add_argument('--bbox-fixed-rotation-independent-index', type=int, default=-1)
     parser.add_argument('--bbox-fixed-rotation-dependent-explicit-index', type=int, default=-1)
     parser.add_argument('--bbox-fixed-rotation-dependent-implicit-index', type=int, default=-1)
-    parser.add_argument('--predict-viewpoint', type=str2bool, default=False,
-                        help='Add a model to predict the viewpoint')
     parser.add_argument('--weight-decay', type=float, default=0.01)
     parser.add_argument('--weight-ref', type=float, default=1.0, help='Weight on the referring loss or viewpoint pred.')
     parser.add_argument('--weight-clf', type=float, default=0.5, help='Weight on the object classification loss')
@@ -128,7 +115,6 @@ def fetch_parser() -> ArgumentParser:
     parser.add_argument('--save-total-limit', type=int, default=20)
 
     # evaluation arguments.
-    parser.add_argument('--use-standard-test', action='store_true', default=False)
     parser.add_argument('--eval-reverse', type=str2bool, default=True)
     parser.add_argument('--eval-single-only', type=str2bool, default=True)
 
@@ -184,8 +170,6 @@ def post_process_arguments(
 
     if args.random_seed >= 0:
         set_random_seed(args.random_seed)
-
-    assert not args.use_point
 
     if args.save_args:
         out = osp.join(args.output_dir, 'config.json.txt')
