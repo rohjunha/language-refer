@@ -17,7 +17,7 @@ BATCH_KEYS = {'input_ids', 'attention_mask', 'utterance_attention_mask',
               'target_mask', 'target_labels', 'gt_input_ids'}
 
 
-class LanguageRefer(DistilBertPreTrainedModel):
+class LanguageReferModel(DistilBertPreTrainedModel):
     def __init__(
             self,
             config: DistilBertConfig,
@@ -117,7 +117,7 @@ def fetch_model(
     model_ = fetch_pretrained_bert_model()
     config = model_.config
 
-    model = LanguageRefer(
+    model = LanguageReferModel(
         config=config,
         use_target_mask=args.use_target_mask,
         num_target_classes=num_target_class)

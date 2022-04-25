@@ -5,7 +5,7 @@ from argparse import ArgumentTypeError, ArgumentParser, Namespace
 from datetime import datetime
 from os import path as osp
 from pathlib import Path
-from typing import Optional, List, Callable
+from typing import Optional, List
 
 from utils.random import set_random_seed
 
@@ -45,13 +45,14 @@ def mkdir(dir_path: Path) -> Path:
     return dir_path
 
 
-def fetch_base_argument_parser() -> ArgumentParser:
+def fetch_parser() -> ArgumentParser:
     """
     Returns ArgumentParser with common options
     :return: ArgumentParser with common options
     """
     parser = ArgumentParser(description='ReferIt3D Nets + Ablations')
 
+    parser.add_argument('--mode', type=str, default='train')
     parser.add_argument('--experiment-tag', type=str, default='')
     parser.add_argument('--dataset-name', type=str, default='nr3d', help='the name of the dataset {nr3d, sr3d}')
     parser.add_argument('--extra-dataset-name', type=str, default=None)
@@ -107,16 +108,29 @@ def fetch_base_argument_parser() -> ArgumentParser:
     parser.add_argument('--save-args', type=str2bool, default=True)
     parser.add_argument('--logging-steps', type=int, default=20)
     parser.add_argument('--save-steps', type=int, default=2000)
+    parser.add_argument('--resume', type=str, default=None)
+    parser.add_argument('--pin-memory', action='store_true', default=False)
 
     # epoch parameters
     parser.add_argument('--no-cuda', type=str2bool, default=False)
     parser.add_argument('--fp16', type=str2bool, default=True)
-    parser.add_argument('--dataloader-num-workers', type=int, default=6)
+    parser.add_argument('--num-workers', type=int, default=8)
+    parser.add_argument('--batch-size', type=int, default=100)
+    parser.add_argument('--gpus', type=int, default=1)
 
     # parameters from TrainingArguments
     parser.add_argument('--num-train-epochs', type=int, default=300)
-    parser.add_argument('--per-device-train-batch-size', type=int, default=35)
-    parser.add_argument('--per-device-eval-batch-size', type=int, default=100)
+
+    # training arguments.
+    parser.add_argument('--train-custom', type=str2bool, default=False)
+    parser.add_argument('--learning-rate', type=float, default=1e-4)
+    parser.add_argument('--warmup-steps', type=int, default=500)
+    parser.add_argument('--save-total-limit', type=int, default=20)
+
+    # evaluation arguments.
+    parser.add_argument('--use-standard-test', action='store_true', default=False)
+    parser.add_argument('--eval-reverse', type=str2bool, default=True)
+    parser.add_argument('--eval-single-only', type=str2bool, default=True)
 
     return parser
 
@@ -193,100 +207,23 @@ def post_process_arguments(
     return args
 
 
-def add_training_options(parser: ArgumentParser) -> ArgumentParser:
-    parser.add_argument('--train-custom', type=str2bool, default=False)
-    parser.add_argument('--learning-rate', type=float, default=1e-4)
-    parser.add_argument('--warmup-steps', type=int, default=500)
-    parser.add_argument('--save-total-limit', type=int, default=20)
-    return parser
-
-
-def add_evaluation_options(parser: ArgumentParser) -> ArgumentParser:
-    parser.add_argument('--use-standard-test', action='store_true', default=False)
-    parser.add_argument('--eval-reverse', type=str2bool, default=True)
-    parser.add_argument('--eval-single-only', type=str2bool, default=True)
-    return parser
-
-
-def fetch_base_arguments(
-        is_train: bool,
-        argument_modifier: Optional[Callable[[Namespace], Namespace]],
-        notebook_options: Optional[List[str]],
-        verbose: bool) -> Namespace:
-    parser = fetch_base_argument_parser()
-    option_adder = add_training_options if is_train else add_evaluation_options
-    parser = option_adder(parser)
+def fetch_arguments(
+        notebook_options=None,
+        verbose: bool = True) -> Namespace:
+    parser = fetch_parser()
 
     args = parse_argument_parser(
         parser=parser,
         notebook_options=notebook_options)
-    if argument_modifier is not None:
-        args = argument_modifier(args)
+
+    is_train = args.mode == 'train'
+    if not is_train:
+        args.use_predicted_class = True
+        args.use_target_mask = True
+        args.target_mask_k = 4
+
     args = post_process_arguments(
         args=args,
         is_train=is_train,
         verbose=verbose)
     return args
-
-
-def standard_training_argument_modifier(args: Namespace) -> Namespace:
-    args.use_bbox_random_rotation_independent = True
-    args.use_bbox_random_rotation_dependent_explicit = False
-    args.use_bbox_random_rotation_dependent_implicit = False
-    args.use_mentions_target_class_only = True
-    args.use_correct_guess_only = True
-    return args
-
-
-def standard_evaluation_argument_modifier(args: Namespace) -> Namespace:
-    args.use_standard_test = True
-    args.use_bbox_random_rotation_independent = False
-    args.use_bbox_random_rotation_dependent_explicit = False
-    args.use_bbox_random_rotation_dependent_implicit = False
-    args.use_mentions_target_class_only = True
-    args.use_correct_guess_only = True
-
-    args.use_predicted_class = True
-    args.use_target_mask = True
-    args.target_mask_k = 4
-    return args
-
-
-def fetch_training_arguments(
-        notebook_options: Optional[List[str]] = None,
-        verbose: bool = True) -> Namespace:
-    return fetch_base_arguments(
-        is_train=True,
-        argument_modifier=None,
-        notebook_options=notebook_options,
-        verbose=verbose)
-
-
-def fetch_standard_training_arguments(
-        notebook_options=None,
-        verbose: bool = True) -> Namespace:
-    return fetch_base_arguments(
-        is_train=True,
-        argument_modifier=standard_training_argument_modifier,
-        notebook_options=notebook_options,
-        verbose=verbose)
-
-
-def fetch_evaluation_arguments(
-        notebook_options: Optional[List[str]] = None,
-        verbose: bool = True) -> Namespace:
-    return fetch_base_arguments(
-        is_train=False,
-        argument_modifier=None,
-        notebook_options=notebook_options,
-        verbose=verbose)
-
-
-def fetch_standard_evaluation_arguments(
-        notebook_options=None,
-        verbose: bool = True) -> Namespace:
-    return fetch_base_arguments(
-        is_train=False,
-        argument_modifier=standard_evaluation_argument_modifier,
-        notebook_options=notebook_options,
-        verbose=verbose)

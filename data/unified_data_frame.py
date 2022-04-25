@@ -78,7 +78,7 @@ def contains_explicit_viewpoint_description(x):
 
 def fetch_unified_data_frame(
         dataset_name: str,
-        split_name: str,
+        split: str,
         use_view_independent: bool = True,
         use_view_dependent_explicit: bool = True,
         use_view_dependent_implicit: bool = True) -> DataFrame:
@@ -98,7 +98,7 @@ def fetch_unified_data_frame(
         other columns: bool, flags
     """
     assert dataset_name in {'nr3d', 'sr3d', 'nr3d+sr3d'}
-    assert split_name in {'train', 'test'}
+    assert split in {'train', 'test'}
     assert use_view_independent or use_view_dependent_explicit or use_view_dependent_implicit
 
     if dataset_name != 'nr3d+sr3d':
@@ -117,7 +117,7 @@ def fetch_unified_data_frame(
     vdi_mask = vd_mask & ~vde_mask if use_view_dependent_implicit else False
     df = df[vi_mask | vde_mask | vdi_mask]
 
-    split_mask = df.is_train == (True if split_name == 'train' else False)
+    split_mask = df.is_train == (True if split == 'train' else False)
     df = df[split_mask]
 
     df.reset_index(drop=True, inplace=True)

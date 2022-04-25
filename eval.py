@@ -48,8 +48,8 @@ def evaluate() -> None:
     dataset = fetch_standard_test_dataset(args=args, tokenizer=tokenizer)
     data_loader = DataLoader(
         dataset,
-        batch_size=args.per_device_eval_batch_size,
-        num_workers=args.dataloader_num_workers,
+        batch_size=args.batch_size,
+        num_workers=args.num_workers,
         shuffle=False,
         worker_init_fn=seed_worker)
 

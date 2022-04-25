@@ -120,15 +120,15 @@ def train():
 
     train_dl = DataLoader(
         train_dataset,
-        batch_size=args.per_device_train_batch_size,
-        num_workers=args.dataloader_num_workers,
+        batch_size=args.batch_size,
+        num_workers=args.num_workers,
         drop_last=True,
         shuffle=True,
         pin_memory=True)
     test_dl = DataLoader(
         test_dataset,
-        batch_size=args.per_device_eval_batch_size,
-        num_workers=args.dataloader_num_workers,
+        batch_size=args.batch_size,
+        num_workers=args.num_workers,
         drop_last=False,
         shuffle=False,
         pin_memory=True)

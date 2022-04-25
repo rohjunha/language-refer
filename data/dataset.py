@@ -43,8 +43,6 @@ def create_sep_word_ids(
     sub_tokens = np.array(tokens[sep_index:])
     sub_word_ids[sub_tokens == '[SEP]'] = -1
     sub_word_ids[sub_tokens == '[PAD]'] = -1
-    # if use_point_embedding_separate:
-    #     sub_word_ids[sub_tokens == '[POINT]'] = -2
     sub_word_ids[
         np.logical_and(sub_word_ids != -1, sub_word_ids != -2)] = 0  # set 0 to tokens from words, -1 (or -2) to escapes
     num_item_per_groups = [len(list(g)) for k, g in groupby(sub_word_ids)]  # count the number of 0s or -1s (or -2s)
@@ -176,7 +174,6 @@ def encode_single_label_with_sep_without_point(
 
 def encode_data_with_tokenizer(
         tokenizer: DistilBertTokenizerFast,
-        rng,
         dataset_names: List[str],
         assignment_ids: List[int],
         utterances: List[str],
@@ -245,11 +242,6 @@ def encode_data_with_tokenizer(
         for k, v in encoded_item.items():
             encoded_value_list_dict[k].append(v)
 
-        # print(encoded_item['labels'])
-        # print(encoded_item['hashs'])
-        # print(encoded_item['target_mask'])
-        # print(encoded_item['wheres'])
-        # input()
     encoded_value_dict = dict()
     for k, v in encoded_value_list_dict.items():
         encoded_value_dict[k] = None if v[0] is None else np.stack(v)
@@ -266,19 +258,6 @@ def encode_data_with_tokenizer(
 
 def fetch_instance_class_list_by_scene_id(label_type: str) -> Dict[str, List[str]]:
     return torch.load(str(fetch_instance_class_list_by_scene_id_path(label_type)))
-
-    # dict_path =
-    # if dict_path.exists():
-    #     return torch.load(str(dict_path))
-    # else:
-    #     dataset_names = {'nr3d', 'sr3d'}
-    #     instance_class_list_by_scene_id = dict()
-    #     for dataset_name in dataset_names:
-    #         scannet_data: ScannetData = read_raw_scannet_data(dataset_name)
-    #         for scene_id, scan in scannet_data.scan_dict.items():
-    #             instance_class_list_by_scene_id[scene_id] = [o.instance_label for o in scan.three_d_objects]
-    #     torch.save(instance_class_list_by_scene_id, str(dict_path))
-    #     return instance_class_list_by_scene_id
 
 
 def fetch_predicted_target_class_by_assignment_id(label_type: str) -> Dict[int, str]:
@@ -299,7 +278,6 @@ class InstanceSampler:
             self,
             dataset_name: str,
             label_type: str,
-            split_name: str,
             storage: InstanceStorage,
             max_distractors: int,
             use_predicted_class: bool,
@@ -307,7 +285,6 @@ class InstanceSampler:
             num_points: int = 1000):
         self.dataset_name = dataset_name
         self.label_type = label_type
-        self.split_name = split_name
 
         self.storage = storage
         self.max_distractors = max_distractors
@@ -452,7 +429,8 @@ class InstanceSampler:
 
 def fetch_instance_items_and_storage_dict(
         args: Namespace,
-        split_name: str) -> Tuple[Dict[str, List[Any]], InstanceStorage]:
+        split: str,
+        target_mask_k: int) -> Tuple[Dict[str, List[Any]], InstanceStorage]:
     storage = fetch_instance_storage(dataset_name=args.dataset_name)
 
     if args.use_custom_df:
@@ -462,23 +440,22 @@ def fetch_instance_items_and_storage_dict(
     else:
         df = fetch_unified_data_frame(
             dataset_name=args.dataset_name,
-            split_name=split_name,
+            split=split,
             use_view_independent=args.use_view_independent,
             use_view_dependent_explicit=args.use_view_dependent_explicit,
             use_view_dependent_implicit=args.use_view_dependent_implicit)
 
-    if args.dataset_name == 'nr3d' and split_name == 'test' and not args.use_custom_df:
+    if args.dataset_name == 'nr3d' and split == 'test' and not args.use_custom_df:
         assignment_ids = torch.load(str(fetch_nr3d_eval_assignment_id_list_path()))
         df = df.loc[df.assignmentid.isin(assignment_ids)]
 
     sampler = InstanceSampler(
         dataset_name=args.dataset_name,
         label_type=args.label_type,
-        split_name=split_name,
         storage=storage,
         max_distractors=args.max_distractors,
         use_predicted_class=args.use_predicted_class,
-        target_mask_k=args.target_mask_k,
+        target_mask_k=target_mask_k,
         num_points=args.num_points)
     if args.debug:
         df = df.iloc[:100]
@@ -487,22 +464,24 @@ def fetch_instance_items_and_storage_dict(
     return instance_items, storage
 
 
-class NewDataset(Dataset):
+class ReferIt3DDataset(Dataset):
+    DATASET_KEYS = {'object_attention_mask', 'utterance_attention_mask', 'target_mask', 'input_ids', 'attention_mask'}
+    GT_DICT = {'labels': 'labels', 'wheres': 'ref', 'target_labels': 'tar', 'binary_labels': 'cls'}
+    BATCH_KEYS = ['dataset_names', 'assignment_ids', 'utterances', 'instance_types', 'view_dependent',
+                  'view_dependent_explicit', 'labels', 'hashs', 'target_mask', 'target_labels', 'noun_word_indices']
+
     def __init__(
             self,
             args: Namespace,
-            is_train: bool,
-            storage: InstanceStorage,
-            encoded_value_dict: Dict[str, List[Any]]):
+            split: str,
+            target_mask_k: int):
         Dataset.__init__(self)
-        self.args = args
-        self.is_train = is_train
-        self.storage = storage
-        self.encoded_value_dict = encoded_value_dict
-
-        self.DATASET_KEYS = {'object_attention_mask', 'utterance_attention_mask',
-                             'target_mask', 'input_ids', 'attention_mask'}
-        self.GT_KEYS = {'labels', 'wheres', 'target_labels', 'binary_labels'}
+        self.tokenizer = DistilBertTokenizerFast.from_pretrained('distilbert-base-cased')
+        self.instance_items_dict, self.storage = fetch_instance_items_and_storage_dict(
+            args=args, split=split, target_mask_k=target_mask_k)
+        self.encoded_value_dict = encode_data_with_tokenizer(
+            tokenizer=self.tokenizer,
+            **{k: self.instance_items_dict[k] for k in self.BATCH_KEYS})
 
     def __len__(self):
         return len(self.encoded_value_dict['labels'])
@@ -534,8 +513,8 @@ class NewDataset(Dataset):
             # copy values from the encoded value dict
             for key in self.DATASET_KEYS:
                 item_dict[key] = torch.tensor(self.encoded_value_dict[key][index])
-            for key in self.GT_KEYS:
-                gt_dict[key] = torch.tensor(self.encoded_value_dict[key][index], dtype=torch.long)
+            for key, val in self.GT_DICT.items():
+                gt_dict[val] = torch.tensor(self.encoded_value_dict[key][index], dtype=torch.long)
 
             # prepare hash indices and values
             encoded_hashs = self.encoded_value_dict['hashs'][index]
@@ -548,56 +527,6 @@ class NewDataset(Dataset):
                 encoded_bboxs[i, ...] = self.storage.get_bbox(h)
 
             # apply rotation w.r.t the arg options
-            assignment_id = self.encoded_value_dict['assignment_ids'][index]
+            assignment_id = torch.tensor(self.encoded_value_dict['assignment_ids'][index])
             item_dict['bboxs'] = torch.tensor(encoded_bboxs)
-
-        return item_dict, gt_dict
-
-
-BATCH_KEYS = [
-    'dataset_names', 'assignment_ids', 'utterances', 'instance_types', 'view_dependent',
-    'view_dependent_explicit', 'labels', 'hashs', 'target_mask', 'target_labels', 'noun_word_indices']
-
-
-def fetch_dataset(
-        args: Namespace,
-        split_name: str,
-        tokenizer: DistilBertTokenizerFast) -> Dataset:
-    instance_items_dict, storage = fetch_instance_items_and_storage_dict(args, split_name)
-
-    rng = np.random.default_rng(0)
-    encoded_value_dict = encode_data_with_tokenizer(
-        tokenizer=tokenizer,
-        rng=rng,
-        **{k: instance_items_dict[k] for k in BATCH_KEYS})
-    dataset = NewDataset(
-        args=args,
-        is_train=split_name == 'train',
-        storage=storage,
-        encoded_value_dict=encoded_value_dict)
-    return dataset
-
-
-def fetch_standard_test_dataset(
-        args: Namespace,
-        tokenizer: DistilBertTokenizerFast) -> Dataset:
-    assert args.use_standard_test
-    assert args.use_mentions_target_class_only
-    assert args.use_correct_guess_only
-    assert not args.use_bbox_random_rotation_independent
-    assert not args.use_bbox_random_rotation_dependent_explicit
-    assert not args.use_bbox_random_rotation_dependent_implicit
-
-    instance_items_dict, storage = fetch_instance_items_and_storage_dict(args=args, split_name='test')
-    rng = np.random.default_rng(0)
-
-    encoded_value_dict = encode_data_with_tokenizer(
-        tokenizer=tokenizer,
-        rng=rng,
-        **{k: instance_items_dict[k] for k in BATCH_KEYS})
-    dataset = NewDataset(
-        args=args,
-        is_train=False,
-        storage=storage,
-        encoded_value_dict=encoded_value_dict)
-    return dataset
+        return item_dict, gt_dict, assignment_id
