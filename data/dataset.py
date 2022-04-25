@@ -12,6 +12,7 @@ from torch import Tensor
 from torch.utils.data import Dataset
 from transformers import DistilBertTokenizerFast
 
+from data.bbox_handler import BoundingBoxHandler
 from data.instance_storage import InstanceStorage, fetch_instance_storage
 from data.unified_data_frame import fetch_unified_data_frame, fetch_custom_data_frame
 from utils.directory import fetch_instance_class_list_by_scene_id_path, \
@@ -495,6 +496,16 @@ class ReferIt3DDataset(Dataset):
             use_target_mask=use_target_mask,
             **{k: self.instance_items_dict[k] for k in self.BATCH_KEYS})
 
+        self.bbox_handler = BoundingBoxHandler(
+            is_train=split == 'train',
+            use_bbox_annotation=args.use_bbox_annotation,
+            use_bbox_random_rotation_independent=args.use_bbox_random_rotation_independent,
+            use_bbox_random_rotation_dependent_explicit=args.use_bbox_random_rotation_dependent_explicit,
+            use_bbox_random_rotation_dependent_implicit=args.use_bbox_random_rotation_dependent_implicit)
+        self.assignment_ids_with_annotations = self.bbox_handler.fetch_assignment_id_set_with_annotations()
+        self.indices_with_annotations = [i for i, j in enumerate(self.encoded_value_dict['assignment_ids'])
+                                         if j in self.assignment_ids_with_annotations]
+
     def __len__(self):
         return len(self.encoded_value_dict['labels'])
 
@@ -538,7 +549,14 @@ class ReferIt3DDataset(Dataset):
             for i, h in zip(hash_indices, hash_values):
                 encoded_bboxs[i, ...] = self.storage.get_bbox(h)
 
+            assignment_id = self.encoded_value_dict['assignment_ids'][index]
+            rotation_index, encoded_bboxs = self.bbox_handler.update_bbox_from_annotation(
+                bbox=encoded_bboxs,
+                assignment_id=assignment_id,
+                view_dependent=self.encoded_value_dict['view_dependent'][index],
+                view_dependent_explicit=self.encoded_value_dict['view_dependent_explicit'][index])
+
             # apply rotation w.r.t the arg options
-            assignment_id = torch.tensor(self.encoded_value_dict['assignment_ids'][index])
+            assignment_id = torch.tensor(assignment_id)
             item_dict['bboxs'] = torch.tensor(encoded_bboxs)
         return item_dict, gt_dict, assignment_id

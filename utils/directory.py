@@ -24,6 +24,14 @@ def fetch_nr3d_eval_assignment_id_list_path() -> Path:
     return path
 
 
+def fetch_viewpoint_annotation_path() -> Path:
+    return fetch_data_root_dir() / 'view_index_annotation.json'
+
+
+def fetch_assignment_id_by_utterance_id_path() -> Path:
+    return fetch_data_root_dir() / 'assignment_id_by_utterance_id.json'
+
+
 def fetch_index_by_instance_class_path(
         label_type: str,
         dataset_name: str) -> Path:

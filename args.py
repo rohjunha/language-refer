@@ -89,7 +89,6 @@ def fetch_parser() -> ArgumentParser:
     parser.add_argument('--weight-ref', type=float, default=1.0, help='Weight on the referring loss or viewpoint pred.')
     parser.add_argument('--weight-clf', type=float, default=0.5, help='Weight on the object classification loss')
 
-    parser.add_argument('--output-dir-prefix', type=str, default='results')
     parser.add_argument('--pretrain-path', type=str, default=None)
     parser.add_argument('--resume', type=str, default=None)
     parser.add_argument('--pin-memory', action='store_true', default=False)
@@ -137,17 +136,6 @@ def post_process_arguments(
     :param verbose: bool, option to print out arguments
     :return: Namespace, updated arguments
     """
-    timestamp = datetime.now().strftime("%m-%d-%Y-%H-%M-%S")
-    if args.output_dir_prefix:
-        output_dir = mkdir(Path.cwd() / args.output_dir_prefix)
-        if args.pretrain_path is not None:
-            args.pretrain_path = output_dir / args.pretrain_path
-            assert args.pretrain_path.exists()
-            if not is_train and not args.experiment_tag:
-                args.experiment_tag = 'eval-{}'.format(str(args.pretrain_path.parent).split('/')[-1])
-                print('Automatically set the experiment tag: {}'.format(args.experiment_tag))
-            args.pretrain_path = str(args.pretrain_path)
-        args.output_dir = str(mkdir(output_dir / args.experiment_tag / timestamp))
     assert args.experiment_tag
 
     # turn off fp16 mode if cuda is not used

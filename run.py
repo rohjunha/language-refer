@@ -12,7 +12,7 @@ from torch.optim import AdamW
 from torch.utils.data import DataLoader
 from transformers import get_linear_schedule_with_warmup
 
-from arguments import fetch_arguments
+from args import fetch_arguments
 from data.dataset import ReferIt3DDataset
 from data.instance_storage import fetch_index_by_instance_class
 from models.language_refer import fetch_model
@@ -173,6 +173,7 @@ def main():
         strategy='dp',
         precision=16,
         num_sanity_val_steps=0,
+        log_every_n_steps=20,
         callbacks=[checkpoint_callback, lr_monitor_callback, ])
 
     if args.mode == 'train':
