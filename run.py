@@ -63,10 +63,10 @@ class LanguageRefer(pl.LightningModule):
     def configure_optimizers(self):
         optimizer = AdamW(self.model.parameters(), lr=self.args.learning_rate)
         scheduler = get_linear_schedule_with_warmup(
-            optimizer,
-            self.args.warmup_steps,
-            self.args.total_training_steps,
-            self.trainer.current_epoch)
+            optimizer=optimizer,
+            num_warmup_steps=self.args.warmup_steps,
+            num_training_steps=self.args.total_training_steps,
+            last_epoch=self.trainer.current_epoch - 1)
         return [optimizer], [scheduler]
 
     def _single_step(self, batch, mode: str):
