@@ -77,14 +77,11 @@ def fetch_parser() -> ArgumentParser:
     parser.add_argument('--use-view-dependent-implicit', type=str2bool, default=True,
                         help='Use view dependent (implicit) utterances')
 
-    parser.add_argument('--use-bbox-annotation-only', action='store_true', default=False,
-                        help='Flag whether the model is doing a viewpoint prediction or a referring task.')
+    parser.add_argument('--use-bbox-annotation', action='store_true', default=False,
+                        help='Apply 2D rotation from annotation.')
     parser.add_argument('--use-bbox-random-rotation-independent', type=str2bool, default=True)
     parser.add_argument('--use-bbox-random-rotation-dependent-explicit', type=str2bool, default=False)
     parser.add_argument('--use-bbox-random-rotation-dependent-implicit', type=str2bool, default=False)
-    parser.add_argument('--bbox-fixed-rotation-independent-index', type=int, default=-1)
-    parser.add_argument('--bbox-fixed-rotation-dependent-explicit-index', type=int, default=-1)
-    parser.add_argument('--bbox-fixed-rotation-dependent-implicit-index', type=int, default=-1)
     parser.add_argument('--weight-decay', type=float, default=0.01)
     parser.add_argument('--weight-ref', type=float, default=1.0, help='Weight on the referring loss or viewpoint pred.')
     parser.add_argument('--weight-clf', type=float, default=0.5, help='Weight on the object classification loss')
