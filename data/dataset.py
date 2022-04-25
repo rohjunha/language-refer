@@ -175,6 +175,7 @@ def encode_single_label_with_sep_without_point(
 
 def encode_data_with_tokenizer(
         tokenizer: DistilBertTokenizerFast,
+        use_target_mask: bool,
         dataset_names: List[str],
         assignment_ids: List[int],
         utterances: List[str],
@@ -213,6 +214,8 @@ def encode_data_with_tokenizer(
         target_labels: List[int], (num_entries, ), bypassed
         input_ids
         gt_input_ids
+        ref_mask
+        cls_mask
     """
     join_char = '[SEP]'
     joined_instance_types: List[str] = [join_char.join(l) for l in instance_types]
@@ -254,6 +257,11 @@ def encode_data_with_tokenizer(
     encoded_value_dict['target_labels'] = target_labels
     encoded_value_dict['utterances'] = utterances
     encoded_value_dict['attention_mask'] = np.stack(encodings['attention_mask'])
+    encoded_value_dict['ref_mask'] = encoded_value_dict['object_attention_mask'] == 1
+    encoded_value_dict['cls_mask'] = encoded_value_dict['object_attention_mask'] == 1
+    if use_target_mask:
+        encoded_value_dict['ref_mask'] = np.logical_and(encoded_value_dict['ref_mask'],
+                                                        encoded_value_dict['target_mask'])
     return encoded_value_dict
 
 
@@ -463,22 +471,26 @@ def fetch_instance_items_and_storage_dict(
 
 
 class ReferIt3DDataset(Dataset):
-    DATASET_KEYS = {'object_attention_mask', 'utterance_attention_mask', 'target_mask', 'input_ids', 'attention_mask'}
+    DATASET_KEYS = {'input_ids', 'attention_mask', 'ref_mask', 'cls_mask'}
     GT_DICT = {'labels': 'labels', 'wheres': 'ref', 'target_labels': 'tar', 'binary_labels': 'cls'}
-    BATCH_KEYS = ['dataset_names', 'assignment_ids', 'utterances', 'instance_types', 'view_dependent',
-                  'view_dependent_explicit', 'labels', 'hashs', 'target_mask', 'target_labels', 'noun_word_indices']
+    BATCH_KEYS = {'dataset_names', 'assignment_ids', 'utterances', 'instance_types', 'view_dependent',
+                  'view_dependent_explicit', 'labels', 'hashs', 'target_mask', 'target_labels', 'noun_word_indices'}
 
     def __init__(
             self,
             args: Namespace,
             split: str,
+            use_target_mask: bool,
             target_mask_k: int):
         Dataset.__init__(self)
+        self.use_target_mask = use_target_mask
+        self.target_mask_k = target_mask_k
         self.tokenizer = DistilBertTokenizerFast.from_pretrained('distilbert-base-cased')
         self.instance_items_dict, self.storage = fetch_instance_items_and_storage_dict(
             args=args, split=split, target_mask_k=target_mask_k)
         self.encoded_value_dict = encode_data_with_tokenizer(
             tokenizer=self.tokenizer,
+            use_target_mask=use_target_mask,
             **{k: self.instance_items_dict[k] for k in self.BATCH_KEYS})
 
     def __len__(self):

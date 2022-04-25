@@ -43,14 +43,13 @@ class LanguageReferModel(DistilBertPreTrainedModel):
             self,
             input_ids,
             attention_mask,
-            utterance_attention_mask,
-            object_attention_mask,
-            bboxs,
-            target_mask
+            ref_mask,
+            cls_mask,
+            bboxs
     ):
         assert attention_mask is not None
-        assert utterance_attention_mask is not None
-        assert object_attention_mask is not None
+        assert cls_mask is not None
+        assert ref_mask is not None
 
         input_embeddings = self.bert_reference.get_input_embeddings()  # .to(device=self.device)
         inputs_embeds = input_embeddings(input_ids)
@@ -69,16 +68,10 @@ class LanguageReferModel(DistilBertPreTrainedModel):
 
         sequence_outputs = outputs[0]  # last hidden state (bsize, seq_len, hidden_size)
         sequence_outputs = self.dropout(sequence_outputs)
+        # Note that ref_mask differs from cls_mask when `use_target_mask` is set.
         ref_logits = self.ref_classifier(sequence_outputs).squeeze(dim=2)  # (bsize, seq_len)
-
-        # update ref_logits with mask
-        ref_mask = object_attention_mask == 1
-        if self.use_target_mask:
-            ref_mask = torch.logical_and(ref_mask, target_mask)
         ref_logits[~ref_mask] = -1e4
-
         cls_logits = self.cls_classifier(sequence_outputs)  # (bsize, seq_len, 2)
-        cls_mask = object_attention_mask == 1
         cls_logits[~cls_mask, :] = -1e4
 
         return {

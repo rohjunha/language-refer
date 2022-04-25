@@ -201,11 +201,6 @@ def fetch_arguments(
         notebook_options=notebook_options)
 
     is_train = args.mode == 'train'
-    if not is_train:
-        args.use_predicted_class = True
-        args.use_target_mask = True
-        args.target_mask_k = 4
-
     args = post_process_arguments(
         args=args,
         is_train=is_train,

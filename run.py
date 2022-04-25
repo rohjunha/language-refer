@@ -1,6 +1,6 @@
 import os
 from argparse import Namespace
-from typing import Dict
+from typing import Dict, Any
 
 import pandas as pd
 import pytorch_lightning as pl
@@ -50,23 +50,22 @@ class LanguageRefer(pl.LightningModule):
     def forward(self,
                 input_ids,
                 attention_mask,
-                utterance_attention_mask,
-                object_attention_mask,
+                ref_mask,
+                cls_mask,
                 bboxs,
                 target_mask):
         return self.model(input_ids=input_ids,
                           attention_mask=attention_mask,
-                          utterance_attention_mask=utterance_attention_mask,
-                          object_attention_mask=object_attention_mask,
-                          bboxs=bboxs,
-                          target_mask=target_mask)
+                          ref_mask=ref_mask,
+                          cls_mask=cls_mask,
+                          bboxs=bboxs)
 
     def configure_optimizers(self):
         optimizer = AdamW(self.model.parameters(), lr=self.args.learning_rate)
         scheduler = get_linear_schedule_with_warmup(
             optimizer,
             self.args.warmup_steps,
-            200000)
+            2000)
         return [optimizer], [scheduler]
 
     def _single_step(self, batch, mode: str):
@@ -117,10 +116,12 @@ def fetch_data_loaders(args: Namespace):
     train_dataset = ReferIt3DDataset(
         args=args,
         split='train',
+        use_target_mask=False,
         target_mask_k=1)
     test_dataset = ReferIt3DDataset(
         args=args,
         split='test',
+        use_target_mask=True,
         target_mask_k=args.target_mask_k)
 
     train_dl = DataLoader(
@@ -163,49 +164,14 @@ def main():
         logger=wandb_logger,
         gpus=args.gpus,
         precision=16,
-        num_sanity_val_steps=10,
+        num_sanity_val_steps=0,
+        deterministic=True,
         callbacks=[checkpoint_callback, lr_monitor_callback, ])
 
     if args.mode == 'train':
         trainer.fit(model, train_dataloaders=train_dl, val_dataloaders=test_dl)
     else:
         trainer.test(model, dataloaders=test_dl)
-
-
-# def evaluate() -> None:
-#     tokenizer = fetch_tokenizer()
-#
-#
-#     device = 'cpu' if args.no_cuda else 'cuda:0'
-#
-#     if args.eval_single_only:
-#         pretrain_path_list = [(-1, args.pretrain_path)]
-#     else:
-#         pretrain_path_list = fetch_pretrain_path_list(args)
-#
-#     for num_iter, pretrain_path in pretrain_path_list:
-#         logger.info('evaluate {}'.format(num_iter))
-#         model = prepare_model(pretrain_path, device, args, tokenizer)
-#
-#         out_matched = []
-#         out_assignment_id = []
-#         count = 0
-#         for batch in tqdm(data_loader):
-#             with torch.no_grad():
-#                 refined_batch = model.prepare_batch(batch, device)
-#                 matched = model.eval_forward(batch=refined_batch)
-#                 out_matched.append(matched)
-#                 out_assignment_id.append(batch['assignment_ids'])
-#                 count += 1
-#
-#         matched = torch.cat(out_matched).detach().cpu()
-#         assignment_id = torch.cat(out_assignment_id).detach().cpu()
-#         matched_dict = {a.item(): m.item() for m, a in zip(matched, assignment_id)}
-#         print('Accuracy {:7.5f}'.format(sum(1 for v in matched_dict.values() if v) / len(matched_dict.values()) * 100))
-#         out_path = Path(args.output_dir) / 'eval{:06d}.json'.format(num_iter) if num_iter > 0 else 'eval.json'
-#         with open(str(out_path), 'w') as file:
-#             json.dump(matched_dict, file, indent=4)
-#         logger.info('wrote an evaluation file: {}'.format(out_path))
 
 
 if __name__ == '__main__':
