@@ -99,10 +99,11 @@ class LanguageRefer(pl.LightningModule):
         matched, assignment_id = zip(*outputs)
         matched = torch.cat(list(matched))
         assignment_id = torch.cat(list(assignment_id))
-        matched_dict = {str(a.item()): float(m.item()) for m, a in zip(matched, assignment_id)}
-        accuracy = sum(1 for v in matched_dict.values() if v) / len(matched_dict.values()) * 100
+        assignment_id = ['{:04d}'.format(i) for i in assignment_id.detach().cpu().numpy().tolist()]
+        matched = matched.detach().cpu().numpy().tolist()
+        accuracy = sum(1 for v in matched if v) / len(matched) * 100
+        df = pd.DataFrame(list(zip(assignment_id, matched)), columns=['assignment_id', 'matched'])
         self.log('{}_accuracy'.format(mode), accuracy, on_step=False, on_epoch=True)
-        df = pd.DataFrame(sorted(matched_dict.items()), columns=['index', 'correct'])
         self.logger.log_text(key='{}_matched'.format(mode), dataframe=df)
 
     def validation_epoch_end(self, outputs):
@@ -150,7 +151,7 @@ def main():
 
     args.total_training_steps = int(args.total_training_epochs * (len(train_dl) / args.gpus))
     print('Set the total training steps: {}'.format(args.total_training_steps))
-    wandb_logger.experiment.config.update(args)
+    # wandb_logger.experiment.config.update(args)
 
     if args.resume:
         model = LanguageRefer.load_from_checkpoint(args.resume, args=args)
