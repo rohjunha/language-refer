@@ -106,13 +106,14 @@ class LanguageRefer(pl.LightningModule):
         self.matched.update(torch.stack((outputs['matched'], outputs['assignment_id']), dim=-1))
 
     def _single_epoch(self, outputs, mode: str):
-        print(self.matched.compute())
-        # matched, assignment_id = zip(*self.matched.compute())
-        # assignment_id = ['{:04d}'.format(i) for i in assignment_id]
-        # accuracy = sum(1 for v in matched if v) / len(matched) * 100
-        # df = pd.DataFrame(list(zip(assignment_id, matched)), columns=['assignment_id', 'matched'])
-        # self.log('{}_accuracy'.format(mode), accuracy, on_step=False, on_epoch=True)
-        # self.logger.log_text(key='{}_matched'.format(mode), dataframe=df)
+        matched = self.matched.compute().detach().cpu()
+        matched, assignment_id = matched[:, 0].to(dtype=torch.bool), matched[:, 1].to(dtype=torch.int64)
+        matched = matched.numpy().tolist()
+        assignment_id = ['{:04d}'.format(i) for i in assignment_id.numpy().tolist()]
+        accuracy = sum(1 for v in matched if v) / len(matched) * 100
+        df = pd.DataFrame(list(zip(assignment_id, matched)), columns=['assignment_id', 'matched'])
+        self.log('{}_accuracy'.format(mode), accuracy, on_step=False, on_epoch=True)
+        self.logger.log_text(key='{}_matched'.format(mode), dataframe=df)
         self.matched.reset()
 
     def validation_epoch_end(self, outputs):
