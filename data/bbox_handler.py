@@ -84,16 +84,31 @@ def _randomly_rotate_box(bbox: np.ndarray) -> Tuple[int, np.ndarray]:
     return _fetch_rotated_bbox(bbox, [0, 1, 2, 3])
 
 
+def _randomly_valid_rotated_bbox(bbox: np.ndarray, indices: List[int]) -> Tuple[np.ndarray, bool]:
+    if len(indices) == 4:
+        _, bbox = _randomly_rotate_box(bbox)
+        return bbox, True
+    elif not indices:
+        _, bbox = _randomly_rotate_box(bbox)
+        return bbox, False
+    else:
+        invalid_indices = [i for i in range(4) if i not in indices]
+        binary_indices = [random.choice(indices), random.choice(invalid_indices)]
+        index = random.choice(binary_indices)
+        theta = THETA_FROM_ANNOTATION_INDEX[binary_indices[index]]
+        return _rotate_bbox(bbox, theta), index == 0
+
+
 class BoundingBoxHandler:
     def __init__(
             self,
             is_train: bool,
-            use_bbox_annotation: bool,
+            use_valid_classification: bool,
             use_bbox_random_rotation_independent: bool,
             use_bbox_random_rotation_dependent_explicit: bool,
             use_bbox_random_rotation_dependent_implicit: bool):
         self.is_train = is_train
-        self.use_bbox_annotation = use_bbox_annotation
+        self.use_valid_classification = use_valid_classification
         self.use_bbox_random_rotation_independent = use_bbox_random_rotation_independent
         self.use_bbox_random_rotation_dependent_explicit = use_bbox_random_rotation_dependent_explicit
         self.use_bbox_random_rotation_dependent_implicit = use_bbox_random_rotation_dependent_implicit
@@ -123,29 +138,21 @@ class BoundingBoxHandler:
             bbox: np.ndarray,
             assignment_id: int,
             view_dependent: bool,
-            view_dependent_explicit: bool) -> Tuple[int, np.ndarray]:
+            view_dependent_explicit: bool) -> Tuple[np.ndarray, bool]:
         view_independent = not view_dependent
         view_dependent_implicit = view_dependent and not view_dependent_explicit
+        indices = self.annotation_by_assignment_id[assignment_id]
 
-        # in evaluation, only rotate when it is using bounding-box annotation and the data is dependent_explicit
+        # In evaluation, no rotation is applied and just check whether the instruction is valid in the current view.
         if not self.is_train:
-            if self.use_bbox_annotation and view_dependent_explicit:
-                return _fetch_rotated_bbox(bbox, self.annotation_by_assignment_id[assignment_id])
-            else:
-                return -1, bbox
+            valid = True if (view_independent or (0 in indices)) else False
+            return bbox, valid
 
-        # in training,
+        # In training,
         else:
-            # rotate w.r.t annotations only if it is using annotation and the data is coming from nr3d
-            if self.use_bbox_annotation:
-                annotations = self.annotation_by_assignment_id[assignment_id]
-                # if annotations are found, rotate w.r.t the data
-                if annotations and view_dependent_explicit:
-                    return _fetch_rotated_bbox(bbox, annotations)
-
-            if view_independent and self.use_bbox_random_rotation_independent or \
-                view_dependent_explicit and self.use_bbox_random_rotation_dependent_explicit or \
-                view_dependent_implicit and self.use_bbox_random_rotation_dependent_implicit:
-                return _randomly_rotate_box(bbox)
+            if view_independent:
+                if self.use_bbox_random_rotation_independent:
+                    _, bbox = _fetch_rotated_bbox(bbox, [0, 1, 2, 3])
+                return bbox, True
             else:
-                return -1, bbox
+                return _randomly_valid_rotated_bbox(bbox, indices)

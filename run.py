@@ -35,7 +35,6 @@ class LanguageRefer(pl.LightningModule):
             dataset_name=args.dataset_name)
 
         self.task_names = {'ref', 'cls'}
-
         ignore_class = 'otherprop' if args.label_type == 'revised' else 'pad'
         self.criterion_dict = {
             'ref': CrossEntropyLoss(),
@@ -45,6 +44,12 @@ class LanguageRefer(pl.LightningModule):
             'ref': args.weight_ref,
             'cls': args.weight_clf,
         }
+
+        if args.use_valid_classification:
+            self.task_names.add('val')
+            self.criterion_dict['val'] = CrossEntropyLoss()
+            self.weight_dict['val'] = args.weight_val
+
         self.meter_dict: Dict[str, AverageMeter] = {key: AverageMeter(key) for key in self.task_names}
         self.matched = CatMetric()
         self.eval_df = load_evaluation_df()

@@ -498,7 +498,6 @@ class ReferIt3DDataset(Dataset):
 
         self.bbox_handler = BoundingBoxHandler(
             is_train=split == 'train',
-            use_bbox_annotation=args.use_bbox_annotation,
             use_bbox_random_rotation_independent=args.use_bbox_random_rotation_independent,
             use_bbox_random_rotation_dependent_explicit=args.use_bbox_random_rotation_dependent_explicit,
             use_bbox_random_rotation_dependent_implicit=args.use_bbox_random_rotation_dependent_implicit)
@@ -550,7 +549,7 @@ class ReferIt3DDataset(Dataset):
                 encoded_bboxs[i, ...] = self.storage.get_bbox(h)
 
             assignment_id = self.encoded_value_dict['assignment_ids'][index]
-            rotation_index, encoded_bboxs = self.bbox_handler.update_bbox_from_annotation(
+            encoded_bboxs, bbox_valid = self.bbox_handler.update_bbox_from_annotation(
                 bbox=encoded_bboxs,
                 assignment_id=assignment_id,
                 view_dependent=self.encoded_value_dict['view_dependent'][index],
@@ -559,4 +558,5 @@ class ReferIt3DDataset(Dataset):
             # apply rotation w.r.t the arg options
             assignment_id = torch.tensor(assignment_id)
             item_dict['bboxs'] = torch.tensor(encoded_bboxs)
+            gt_dict['val'] = torch.tensor(bbox_valid)
         return item_dict, gt_dict, assignment_id

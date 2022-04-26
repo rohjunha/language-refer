@@ -22,7 +22,8 @@ class LanguageReferModel(DistilBertPreTrainedModel):
             self,
             config: DistilBertConfig,
             num_target_classes: int,
-            use_target_mask: bool):
+            use_target_mask: bool,
+            use_valid_classification: bool):
         DistilBertPreTrainedModel.__init__(
             self,
             config)
@@ -31,11 +32,14 @@ class LanguageReferModel(DistilBertPreTrainedModel):
         self.use_target_mask = use_target_mask
         self.num_target_classes = num_target_classes
         self.vocab_size = 28996
+        self.use_valid_classification = use_valid_classification
 
         self.bert_reference = DistilBertModel(config)
         self.dropout = Dropout(0.1)
         self.ref_classifier = Linear(self.config.hidden_size, 1)
         self.cls_classifier = Linear(self.config.hidden_size, 2)
+        if self.use_valid_classification:
+            self.val_classifier = Linear(self.config.hidden_size, 2)
 
         self.is_train = None
 
@@ -73,27 +77,14 @@ class LanguageReferModel(DistilBertPreTrainedModel):
         ref_logits[~ref_mask] = -1e4
         cls_logits = self.cls_classifier(sequence_outputs)  # (bsize, seq_len, 2)
         cls_logits[~cls_mask, :] = -1e4
-
-        return {
+        logits = {
             'ref': ref_logits,  # (bsize, seq_len)
             'cls': cls_logits.view(-1, 2),  # (bsize * seq_len, 2)
         }
 
-    def prepare_batch(self, raw_batch, device):
-        batch = dict()
-        for key, value in raw_batch.items():
-            if key in BATCH_KEYS:
-                if isinstance(value, Tensor):
-                    batch[key] = value.to(device=device)
-                else:
-                    batch[key] = value
-        return batch
-
-    def eval_forward(self, batch) -> Tensor:
-        logits_dict, gt_dict = self.forward(**batch)
-        indices = torch.argmax(logits_dict['ref'], dim=1)
-        matched = indices == gt_dict['ref']
-        return matched
+        if self.use_valid_classification:
+            logits['val'] = self.val_classifier(sequence_outputs[:, 0, :].squeeze())  # (bsize, 2)
+        return logits
 
 
 def fetch_index_by_target_class_dict(label_type: str) -> Dict[str, int]:
@@ -113,7 +104,8 @@ def fetch_model(
     model = LanguageReferModel(
         config=config,
         use_target_mask=args.use_target_mask,
-        num_target_classes=num_target_class)
+        num_target_classes=num_target_class,
+        use_valid_classification=args.use_valid_classification)
 
     if args.pretrain_path is None:
         model.bert_reference = model_

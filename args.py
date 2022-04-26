@@ -82,9 +82,12 @@ def fetch_parser() -> ArgumentParser:
     parser.add_argument('--use-bbox-random-rotation-independent', type=str2bool, default=True)
     parser.add_argument('--use-bbox-random-rotation-dependent-explicit', type=str2bool, default=False)
     parser.add_argument('--use-bbox-random-rotation-dependent-implicit', type=str2bool, default=False)
+    parser.add_argument('--use-valid-classification', action='store_true', default=False,
+                        help='Use additional loss for checking the validity of the instruction.')
     parser.add_argument('--weight-decay', type=float, default=0.01)
     parser.add_argument('--weight-ref', type=float, default=1.0, help='Weight on the referring loss or viewpoint pred.')
-    parser.add_argument('--weight-clf', type=float, default=0.5, help='Weight on the object classification loss')
+    parser.add_argument('--weight-clf', type=float, default=0.5, help='Weight on the object classification loss.')
+    parser.add_argument('--weight-val', type=float, default=0.5, help='Weight on the validity classification loss.')
 
     parser.add_argument('--pretrain-path', type=str, default=None)
     parser.add_argument('--resume', type=str, default=None)
