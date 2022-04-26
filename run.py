@@ -110,8 +110,9 @@ class LanguageRefer(pl.LightningModule):
         matched, assignment_id = matched[:, 0].to(dtype=torch.bool), matched[:, 1].to(dtype=torch.int64)
         matched = matched.numpy().tolist()
         assignment_id = ['{:04d}'.format(i) for i in assignment_id.numpy().tolist()]
-        accuracy = sum(1 for v in matched if v) / len(matched) * 100
-        df = pd.DataFrame(list(zip(assignment_id, matched)), columns=['assignment_id', 'matched'])
+        res = {k: v for k, v in zip(assignment_id, matched)}
+        accuracy = sum(1 for v in res.values() if v) / len(res) * 100
+        df = pd.DataFrame(list(res.items()), columns=['assignment_id', 'matched'])
         self.log('{}_accuracy'.format(mode), accuracy, on_step=False, on_epoch=True)
         self.logger.log_text(key='{}_matched'.format(mode), dataframe=df)
         self.matched.reset()
