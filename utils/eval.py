@@ -105,4 +105,4 @@ def compute_stat_from_eval_dict(val_data, eval_dict) -> pd.DataFrame:
     for name, mask in mask_info_list:
         acc, count, total = compute_accuracy(matched, mask)
         value_dict[name] = acc
-    return pd.DataFrame({k: ['{:4.1f}'.format(v)] for k, v in value_dict.items()})
+    return pd.DataFrame({k: ['{:4.3f}'.format(v)] for k, v in value_dict.items()})
