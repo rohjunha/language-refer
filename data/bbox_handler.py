@@ -84,18 +84,18 @@ def _randomly_rotate_box(bbox: np.ndarray) -> Tuple[int, np.ndarray]:
     return _fetch_rotated_bbox(bbox, [0, 1, 2, 3])
 
 
-def _randomly_valid_rotated_bbox(bbox: np.ndarray, indices: List[int]) -> Tuple[np.ndarray, bool]:
+def _randomly_valid_rotated_bbox(bbox: np.ndarray, indices: List[int]) -> Tuple[np.ndarray, int]:
     if len(indices) == 4:
         _, bbox = _randomly_rotate_box(bbox)
-        return bbox, True
+        return bbox, 1
     elif not indices:
         _, bbox = _randomly_rotate_box(bbox)
-        return bbox, False
+        return bbox, 0
     else:
         invalid_indices = [i for i in range(4) if i not in indices]
         binary_indices = [random.choice(indices), random.choice(invalid_indices)]
         index = random.choice(binary_indices)
-        return _rotate_bbox(bbox, THETA_FROM_ANNOTATION_INDEX[index]), index == binary_indices[0]
+        return _rotate_bbox(bbox, THETA_FROM_ANNOTATION_INDEX[index]), int(index == binary_indices[0])
 
 
 class BoundingBoxHandler:
@@ -137,14 +137,14 @@ class BoundingBoxHandler:
             bbox: np.ndarray,
             assignment_id: int,
             view_dependent: bool,
-            view_dependent_explicit: bool) -> Tuple[np.ndarray, bool]:
+            view_dependent_explicit: bool) -> Tuple[np.ndarray, int]:
         view_independent = not view_dependent
         view_dependent_implicit = view_dependent and not view_dependent_explicit
         indices = self.annotation_by_assignment_id[assignment_id]
 
         # In evaluation, no rotation is applied and just check whether the instruction is valid in the current view.
         if not self.is_train:
-            valid = True if (view_independent or (0 in indices)) else False
+            valid = 1 if (view_independent or (0 in indices)) else 0
             return bbox, valid
 
         # In training,
@@ -152,6 +152,6 @@ class BoundingBoxHandler:
             if view_independent:
                 if self.use_bbox_random_rotation_independent:
                     _, bbox = _fetch_rotated_bbox(bbox, [0, 1, 2, 3])
-                return bbox, True
+                return bbox, 1
             else:
                 return _randomly_valid_rotated_bbox(bbox, indices)
