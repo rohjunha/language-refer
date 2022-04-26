@@ -1,3 +1,12 @@
+from typing import Tuple
+
+import pandas as pd
+import torch
+
+from data.unified_data_frame import fetch_unified_data_frame
+from utils.directory import fetch_nr3d_eval_assignment_id_list_path
+
+
 class AverageMeter:
     """Computes and stores the average and current value"""
     def __init__(self, name, fmt=':f'):
@@ -37,3 +46,63 @@ class ProgressMeter:
         num_digits = len(str(num_batches // 1))
         fmt = '{:' + str(num_digits) + 'd}'
         return '[' + fmt + '/' + fmt.format(num_batches) + ']'
+
+
+def hardness_from_stimulus_string(s: str) -> bool:
+    if len(s.split('-', maxsplit=4)) == 4:
+        scene_id, instance_label, n_objects, target_id = \
+            s.split('-', maxsplit=4)
+        distractor_ids = ""
+    else:
+        scene_id, instance_label, n_objects, target_id, distractor_ids = \
+            s.split('-', maxsplit=4)
+
+    # instance_label = instance_label.replace('_', ' ')
+    n_objects = int(n_objects)
+    # target_id = int(target_id)
+    distractor_ids = [int(i) for i in distractor_ids.split('-') if i != '']
+    assert len(distractor_ids) == n_objects - 1
+    return n_objects > 2
+
+
+def load_evaluation_df() -> pd.DataFrame:
+    df = fetch_unified_data_frame(
+        dataset_name='nr3d',
+        split='test',
+        use_view_independent=True,
+        use_view_dependent_explicit=True,
+        use_view_dependent_implicit=True)
+    assignment_ids = torch.load(str(fetch_nr3d_eval_assignment_id_list_path()))
+    df = df.loc[df.assignmentid.isin(assignment_ids)]
+    df['hard'] = df.stimulus_id.apply(hardness_from_stimulus_string)
+    return df
+
+
+def compute_accuracy(matched, mask) -> Tuple[float, int, int]:
+    df = matched.loc[mask] if mask is not None else matched
+    count = sum(df)
+    total = len(df)
+    if total == 0:
+        return 0, 0, 1
+    acc = count / total * 100
+    return acc, count, total
+
+
+def compute_stat_from_eval_dict(val_data, eval_dict) -> pd.DataFrame:
+    matched = val_data['assignmentid'].map(eval_dict)
+    easy = ~val_data.hard
+    hard = val_data.hard
+    vd = val_data.view_dependent
+    vi = ~vd
+    mask_info_list = [
+        ('overall', None),
+        ('easy', easy),
+        ('hard', hard),
+        ('vd', vd),
+        ('vi', vi),
+    ]
+    value_dict = dict()
+    for name, mask in mask_info_list:
+        acc, count, total = compute_accuracy(matched, mask)
+        value_dict[name] = acc
+    return pd.DataFrame({k: ['{:4.1f}'.format(v)] for k, v in value_dict.items()})

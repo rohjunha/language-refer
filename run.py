@@ -1,6 +1,6 @@
 import os
 from argparse import Namespace
-from typing import Dict, Any
+from typing import Dict
 
 import pandas as pd
 import pytorch_lightning as pl
@@ -10,6 +10,7 @@ from pytorch_lightning.loggers import WandbLogger
 from torch.nn import CrossEntropyLoss
 from torch.optim import AdamW
 from torch.utils.data import DataLoader
+from torchmetrics import CatMetric
 from transformers import get_linear_schedule_with_warmup
 
 from args import fetch_arguments
@@ -17,12 +18,9 @@ from data.dataset import ReferIt3DDataset
 from data.instance_storage import fetch_index_by_instance_class
 from models.language_refer import fetch_model
 from utils.distilbert import fetch_tokenizer
-from utils.eval import AverageMeter
+from utils.eval import AverageMeter, load_evaluation_df, compute_stat_from_eval_dict
 
 os.environ['TOKENIZERS_PARALLELISM'] = 'false'
-
-
-from torchmetrics import CatMetric
 
 
 class LanguageRefer(pl.LightningModule):
@@ -49,6 +47,7 @@ class LanguageRefer(pl.LightningModule):
         }
         self.meter_dict: Dict[str, AverageMeter] = {key: AverageMeter(key) for key in self.task_names}
         self.matched = CatMetric()
+        self.eval_df = load_evaluation_df()
 
     def forward(self,
                 input_ids,
@@ -109,12 +108,13 @@ class LanguageRefer(pl.LightningModule):
         matched = self.matched.compute().detach().cpu()
         matched, assignment_id = matched[:, 0].to(dtype=torch.bool), matched[:, 1].to(dtype=torch.int64)
         matched = matched.numpy().tolist()
-        assignment_id = ['{:04d}'.format(i) for i in assignment_id.numpy().tolist()]
+        assignment_id = assignment_id.numpy().tolist()
         res = {k: v for k, v in zip(assignment_id, matched)}
         accuracy = sum(1 for v in res.values() if v) / len(res) * 100
-        df = pd.DataFrame(list(res.items()), columns=['assignment_id', 'matched'])
+        # df = pd.DataFrame(list(res.items()), columns=['assignment_id', 'matched'])
+        stat_df = compute_stat_from_eval_dict(self.eval_df, res)
         self.log('{}_accuracy'.format(mode), accuracy, on_step=False, on_epoch=True)
-        self.logger.log_text(key='{}_matched'.format(mode), dataframe=df)
+        self.logger.log_text(key='{}_matched'.format(mode), dataframe=stat_df)
         self.matched.reset()
 
     def validation_epoch_end(self, outputs):
