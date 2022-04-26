@@ -66,7 +66,7 @@ def fetch_parser() -> ArgumentParser:
     parser.add_argument('--use-custom-df', action='store_true', default=False)
     parser.add_argument('--custom-df-path', type=str, default='')
     parser.add_argument('--use-target-mask', action='store_true', default=False)
-    parser.add_argument('--use-predicted-class', action='store_true', default=True)
+    parser.add_argument('--use-predicted-class', action='store_true', default=False)
     parser.add_argument('--target-mask-k', type=int, default=4)
     parser.add_argument('--normalize-bbox', action='store_true', default=False,
                         help='Normalize the 3D position of bboxs')

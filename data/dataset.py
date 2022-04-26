@@ -498,6 +498,7 @@ class ReferIt3DDataset(Dataset):
 
         self.bbox_handler = BoundingBoxHandler(
             is_train=split == 'train',
+            use_valid_classification=args.use_valid_classification,
             use_bbox_random_rotation_independent=args.use_bbox_random_rotation_independent,
             use_bbox_random_rotation_dependent_explicit=args.use_bbox_random_rotation_dependent_explicit,
             use_bbox_random_rotation_dependent_implicit=args.use_bbox_random_rotation_dependent_implicit)
