@@ -95,8 +95,7 @@ def _randomly_valid_rotated_bbox(bbox: np.ndarray, indices: List[int]) -> Tuple[
         invalid_indices = [i for i in range(4) if i not in indices]
         binary_indices = [random.choice(indices), random.choice(invalid_indices)]
         index = random.choice(binary_indices)
-        theta = THETA_FROM_ANNOTATION_INDEX[binary_indices[index]]
-        return _rotate_bbox(bbox, theta), index == 0
+        return _rotate_bbox(bbox, THETA_FROM_ANNOTATION_INDEX[index]), index == binary_indices[0]
 
 
 class BoundingBoxHandler:
