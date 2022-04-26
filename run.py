@@ -22,21 +22,7 @@ from utils.eval import AverageMeter
 os.environ['TOKENIZERS_PARALLELISM'] = 'false'
 
 
-from torchmetrics import Metric
-
-
-class MatchedAssignmentID(Metric):
-    def __init__(self):
-        Metric.__init__(self)
-        self.add_state('matched', default=[], dist_reduce_fx='cat')
-
-    def update(self, matched, assignment_id):
-        ml = matched.detach().cpu().numpy().tolist()
-        al = assignment_id.detach().cpu().numpy().tolist()
-        self.matched += list(zip(ml, al))
-
-    def compute(self):
-        return self.matched
+from torchmetrics import CatMetric
 
 
 class LanguageRefer(pl.LightningModule):
@@ -62,7 +48,7 @@ class LanguageRefer(pl.LightningModule):
             'cls': args.weight_clf,
         }
         self.meter_dict: Dict[str, AverageMeter] = {key: AverageMeter(key) for key in self.task_names}
-        self.matched = MatchedAssignmentID()
+        self.matched = CatMetric()
 
     def forward(self,
                 input_ids,
@@ -101,7 +87,7 @@ class LanguageRefer(pl.LightningModule):
         _, logits_dict, assignment_ids, gt_dict = self._single_step(batch=batch, mode=mode)
         indices = torch.argmax(logits_dict['ref'], dim=1)
         matched = indices == gt_dict['ref']
-        return {'matched': matched.detach().cpu(), 'assignment_id': assignment_ids.detach().cpu()}
+        return {'matched': matched, 'assignment_id': assignment_ids}
 
     def training_step(self, train_batch, batch_idx):
         loss, _, _, _ = self._single_step(batch=train_batch, mode='train')
@@ -114,18 +100,19 @@ class LanguageRefer(pl.LightningModule):
         return self._single_step_with_matched(batch=test_batch, mode='test')
 
     def validation_step_end(self, outputs):
-        self.matched.update(outputs['matched'], outputs['assignment_id'])
+        self.matched.update(torch.stack((outputs['matched'], outputs['assignment_id']), dim=-1))
 
     def test_step_end(self, outputs):
-        self.matched.update(outputs['matched'], outputs['assignment_id'])
+        self.matched.update(torch.stack((outputs['matched'], outputs['assignment_id']), dim=-1))
 
     def _single_epoch(self, outputs, mode: str):
-        matched, assignment_id = zip(*self.matched.compute())
-        assignment_id = ['{:04d}'.format(i) for i in assignment_id]
-        accuracy = sum(1 for v in matched if v) / len(matched) * 100
-        df = pd.DataFrame(list(zip(assignment_id, matched)), columns=['assignment_id', 'matched'])
-        self.log('{}_accuracy'.format(mode), accuracy, on_step=False, on_epoch=True)
-        self.logger.log_text(key='{}_matched'.format(mode), dataframe=df)
+        print(self.matched.compute())
+        # matched, assignment_id = zip(*self.matched.compute())
+        # assignment_id = ['{:04d}'.format(i) for i in assignment_id]
+        # accuracy = sum(1 for v in matched if v) / len(matched) * 100
+        # df = pd.DataFrame(list(zip(assignment_id, matched)), columns=['assignment_id', 'matched'])
+        # self.log('{}_accuracy'.format(mode), accuracy, on_step=False, on_epoch=True)
+        # self.logger.log_text(key='{}_matched'.format(mode), dataframe=df)
         self.matched.reset()
 
     def validation_epoch_end(self, outputs):
