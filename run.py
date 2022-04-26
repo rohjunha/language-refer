@@ -22,6 +22,23 @@ from utils.eval import AverageMeter
 os.environ['TOKENIZERS_PARALLELISM'] = 'false'
 
 
+from torchmetrics import Metric
+
+
+class MatchedAssignmentID(Metric):
+    def __init__(self):
+        Metric.__init__(self)
+        self.add_state('matched', default=[], dist_reduce_fx='cat')
+
+    def update(self, matched, assignment_id):
+        ml = matched.detach().cpu().numpy().tolist()
+        al = assignment_id.detach().cpu().numpy().tolist()
+        self.matched += list(zip(ml, al))
+
+    def compute(self):
+        return self.matched
+
+
 class LanguageRefer(pl.LightningModule):
     def __init__(self, args: Namespace):
         pl.LightningModule.__init__(self)
@@ -45,6 +62,7 @@ class LanguageRefer(pl.LightningModule):
             'cls': args.weight_clf,
         }
         self.meter_dict: Dict[str, AverageMeter] = {key: AverageMeter(key) for key in self.task_names}
+        self.matched = MatchedAssignmentID()
 
     def forward(self,
                 input_ids,
@@ -83,7 +101,7 @@ class LanguageRefer(pl.LightningModule):
         _, logits_dict, assignment_ids, gt_dict = self._single_step(batch=batch, mode=mode)
         indices = torch.argmax(logits_dict['ref'], dim=1)
         matched = indices == gt_dict['ref']
-        return matched.detach().cpu(), assignment_ids.detach().cpu()
+        return {'matched': matched.detach().cpu(), 'assignment_id': assignment_ids.detach().cpu()}
 
     def training_step(self, train_batch, batch_idx):
         loss, _, _, _ = self._single_step(batch=train_batch, mode='train')
@@ -95,16 +113,20 @@ class LanguageRefer(pl.LightningModule):
     def test_step(self, test_batch, batch_idx):
         return self._single_step_with_matched(batch=test_batch, mode='test')
 
+    def validation_step_end(self, outputs):
+        self.matched.update(outputs['matched'], outputs['assignment_id'])
+
+    def test_step_end(self, outputs):
+        self.matched.update(outputs['matched'], outputs['assignment_id'])
+
     def _single_epoch(self, outputs, mode: str):
-        matched, assignment_id = zip(*outputs)
-        matched = torch.cat(list(matched))
-        assignment_id = torch.cat(list(assignment_id))
-        assignment_id = ['{:04d}'.format(i) for i in assignment_id.detach().cpu().numpy().tolist()]
-        matched = matched.detach().cpu().numpy().tolist()
+        matched, assignment_id = zip(*self.matched.compute())
+        assignment_id = ['{:04d}'.format(i) for i in assignment_id]
         accuracy = sum(1 for v in matched if v) / len(matched) * 100
         df = pd.DataFrame(list(zip(assignment_id, matched)), columns=['assignment_id', 'matched'])
         self.log('{}_accuracy'.format(mode), accuracy, on_step=False, on_epoch=True)
         self.logger.log_text(key='{}_matched'.format(mode), dataframe=df)
+        self.matched.reset()
 
     def validation_epoch_end(self, outputs):
         self._single_epoch(outputs=outputs, mode='val')
