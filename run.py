@@ -111,10 +111,11 @@ class LanguageRefer(pl.LightningModule):
         assignment_id = assignment_id.numpy().tolist()
         res = {k: v for k, v in zip(assignment_id, matched)}
         accuracy = sum(1 for v in res.values() if v) / len(res) * 100
-        # df = pd.DataFrame(list(res.items()), columns=['assignment_id', 'matched'])
+        df = pd.DataFrame(list(res.items()), columns=['assignment_id', 'matched'])
         stat_df = compute_stat_from_eval_dict(self.eval_df, res)
         self.log('{}_accuracy'.format(mode), accuracy, on_step=False, on_epoch=True)
-        self.logger.log_text(key='{}_matched'.format(mode), dataframe=stat_df)
+        self.logger.log_text(key='{}_matched'.format(mode), dataframe=df)
+        self.logger.log_text(key='{}_summary'.format(mode), dataframe=stat_df)
         self.matched.reset()
 
     def validation_epoch_end(self, outputs):
