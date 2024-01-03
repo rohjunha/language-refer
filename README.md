@@ -26,7 +26,8 @@ These libraries will be installed if you follow the guide below:
 1. Install `anaconda3` manually or by running `bash ./install_anaconda.sh`. (Note that this will modify your `~/.bashrc` file.)
 1. Setup an environment by running `conda env create -f env.yml`.
 1. Activate the environment by running `conda activate lr`.
-1. Download pre-trained model files by running `bash ./download_models.sh`
+1. Download pre-trained model files for [nr3d](https://drive.google.com/file/d/1_pdw_fhH_eueE-2yy6T4FobUT4aOxRn9/view?usp=sharing) and [sr3d](https://drive.google.com/file/d/1KNdshDEg4AdnNMKGn7xbedVTQB06TW-7/view?usp=sharing).
+1. Extract files to `./resources/models/nr3d/model.pt` and `./resources/models/sr3d/model.pt`.
 1. With the conda environment `lr` activated,
   1. For `nr3d`, run `python eval.py --dataset-name nr3d --pretrain-path $(PROJECT_PATH)/resources/models/nr3d`.
   1. For `sr3d`, run `python eval.py --dataset-name sr3d --pretrain-path $(PROJECT_PATH)/resources/models/sr3d`.
